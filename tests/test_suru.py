@@ -153,7 +153,7 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.request("/api/missing")[0], 404)
 
     def test_frontend_assets_are_served_with_security_headers(self):
-        for path, content_type in (("/","text/html"),("/profile","text/html"),("/profile.js","text/javascript"),("/app.js","text/javascript"),("/style.css","text/css")):
+        for path, content_type in (("/","text/html"),("/profile","text/html"),("/profile.js","text/javascript"),("/app.js","text/javascript"),("/style.css","text/css"),("/onboarding.css","text/css")):
             with self.subTest(path=path), urlopen(self.url+path, timeout=5) as response:
                 self.assertEqual(response.status, 200)
                 self.assertTrue(response.headers["Content-Type"].startswith(content_type))

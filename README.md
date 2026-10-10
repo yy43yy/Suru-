@@ -35,6 +35,10 @@ single local profile persists across restarts; existing journal records are
 preserved. The goal carries into new check-ins. Schedule and distance are saved
 as context for the next planning increment, not used to prescribe workouts yet.
 
+Setup presents one question at a time, with progress, Back/Continue navigation,
+and an editable review before saving. Answers remain in the form while moving
+between questions; they are saved to the database only on the final step.
+
 1. Select a goal and enter the planned run and time available.
 2. Check in with sleep, energy, fatigue, leg soreness, and recent training load.
 3. Read the suggested session, reasons, separate state summaries, and uncertainty.
@@ -71,12 +75,25 @@ experiments and are not used by the app.
 ```powershell
 python -m unittest discover -s tests -v
 node --check suru/static/app.js
+node --check suru/static/profile.js
 ```
 
 Tests use temporary databases and cover the full HTTP check-in → recommendation
 → run log → next-day feedback loop, input validation, missing data, isolated HRV,
 pain, time constraints, and duplicate logs. Node is optional for the app; it is
 only used here to syntax-check the frontend.
+
+For the onboarding browser smoke test on Windows with Microsoft Edge installed:
+
+```powershell
+node tests/browser_profile.mjs
+```
+
+This starts an isolated server and temporary database, runs headless Edge, and
+checks required answers, Back navigation, review/edit, dependent weekday options,
+failed-save retry, successful save, returning-user editing, and mobile width.
+It does not change your real profile or journal. Set `SURU_EDGE` if Edge is
+installed at a different path.
 
 ## Next increments
 
