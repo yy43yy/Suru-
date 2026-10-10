@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suru — Your run, considered</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/" aria-label="Suru home">suru<span>●</span></a><span class="badge">RUNNING / EARLY PROTOTYPE</span><a href="#history">Run history ↗</a></header>
+  <main>
+    <section class="intro"><p class="eyebrow">A LITTLE CONTEXT. A BETTER RUN.</p><h1>Your plan meets<br>your <em>today.</em></h1><p>Bring the session you had in mind. Check in with yourself.<br>Find a run that fits the day you're actually having.</p></section>
+    <div class="workspace">
+      <section class="card checkin">
+        <div class="section-heading"><span class="step">01</span><div><p class="eyebrow">THE DAILY CHECK-IN</p><h2>What’s on the plan?</h2></div></div>
+        <form id="checkin-form">
+          <div class="fields">
+            <label>Run date<input name="date" id="run-date" type="date" required></label>
+            <label>Your goal<select name="goal"><option value="fitness">General running fitness</option><option value="race">Race preparation</option></select></label>
+            <label>Planned session<select name="session_type"><option value="easy">Easy run</option><option value="long">Long run</option><option value="tempo">Tempo run</option><option value="intervals">Intervals</option></select></label>
+            <label>Planned minutes<input name="planned_minutes" type="number" min="5" max="300" value="45" required></label>
+            <label>Time available · minutes<input name="available_minutes" type="number" min="5" max="300" value="45" required></label>
+            <label>Last night’s sleep · hours<input name="sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Optional"></label>
+          </div>
+          <div class="divider"></div><h3>How are you arriving today?</h3>
+          <div class="fields">
+            <label>Energy<select name="energy"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option></select></label>
+            <label>Fatigue<select name="fatigue"><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option></select></label>
+            <label>Leg soreness<select name="soreness"><option value="none">None</option><option value="mild">Mild soreness</option><option value="significant">Significant soreness</option><option value="pain">Pain, beyond soreness</option></select></label>
+            <label>Recent training load<select name="recent_load"><option value="unknown">Not sure</option><option value="usual">About usual</option><option value="higher">Higher than usual</option></select></label>
+            <label>HRV · milliseconds<input name="hrv" type="number" min="1" max="500" step="0.1" placeholder="Optional"></label>
+            <label>Anything to record?<input name="notes" maxlength="500" placeholder="Notes for your history"></label>
+          </div>
+          <p class="hint">Notes and HRV are saved for context; they do not drive this prototype’s rules.</p>
+          <button class="primary" type="submit">Find today’s run <span>↗</span></button>
+          <p id="checkin-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+      <div class="right-column">
+        <section class="card recommendation" aria-labelledby="recommendation-title">
+          <div class="section-heading"><span class="step">02</span><div><p class="eyebrow">YOUR NEXT STEP</p><h2 id="recommendation-title">Today’s recommendation</h2></div></div>
+          <div id="recommendation-empty" class="empty"><div class="track" aria-hidden="true">↗</div><h3>A plan with room for you.</h3><p>Complete your check-in to see a suggested session and the reasons behind it.</p></div>
+          <div id="recommendation-content" hidden>
+            <p id="recommendation-date" class="eyebrow"></p><span id="action" class="pill"></span>
+            <h3 id="suggested-run" class="run-title"></h3><p id="intensity"></p>
+            <div id="states" class="states"></div>
+            <h4>Why this fits today</h4><ul id="reasons"></ul>
+            <details><summary>What this suggestion can’t tell us</summary><ul id="uncertainty"></ul></details>
+            <p class="hint">Your plan stays yours. Record the suggestion, your original session, or another choice below.</p>
+          </div>
+        </section>
+        <section class="card" id="log-card" hidden>
+          <div class="section-heading"><span class="step">03</span><div><p class="eyebrow">CLOSE THE LOOP</p><h2>How did the run go?</h2></div></div>
+          <form id="log-form"><input name="session_id" id="session-id" type="hidden">
+            <div class="fields">
+              <label>What did you follow?<select name="choice"><option value="recommendation">Suru’s suggestion</option><option value="original">My original session</option><option value="other">Another session</option></select></label>
+              <label>Actual duration · minutes<input name="minutes" type="number" min="1" max="600" step="0.1" required></label>
+              <label>Distance · km<input name="distance_km" type="number" min="0.01" max="300" step="0.01" required></label>
+              <label>Perceived effort · 1–10<input name="effort" type="number" min="1" max="10" step="1" required></label>
+            </div>
+            <label class="wide">Run notes<textarea name="notes" maxlength="500" rows="2" placeholder="How it felt, anything you changed…"></textarea></label>
+            <p class="hint">1 = very easy · 10 = maximal effort. Log actual activity even if you changed the suggestion.</p>
+            <button class="primary" type="submit">Save completed run <span>✓</span></button>
+            <p id="log-status" class="status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+        <aside class="footnote"><span>✳</span><p>Recovery has more than one dimension. Suru considers overall fatigue, leg soreness, and recent demands separately.</p></aside>
+      </div>
+    </div>
+    <section class="history-section" id="history"><div class="history-heading"><div><p class="eyebrow">THE DAYS ADD UP</p><h2>Your running journal</h2></div><span class="badge">SAVED ON THIS COMPUTER</span></div><p id="history-status" role="status"></p><div id="history-list"></div></section>
+    <footer><strong>suru.</strong><p>Local prototype · Provisional rules · Plan generation is coming later.</p></footer>
+  </main>
+</body>
+</html>
