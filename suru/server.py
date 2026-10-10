@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .domain import ValidationError, run_input, session_input
+from .domain import ValidationError, profile_input, run_input, session_input
 from .storage import Store
 
 STATIC = Path(__file__).parent / "static"
@@ -31,8 +31,10 @@ def handler_for(store):
             path = urlsplit(self.path).path
             if path == "/api/history":
                 self.send(200, store.history())
-            elif path in ("/", "/app.js", "/style.css"):
-                name, mime = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}[path]
+            elif path == "/api/profile":
+                self.send(200, {"profile": store.get_profile()})
+            elif path in ("/", "/profile", "/app.js", "/profile.js", "/style.css"):
+                name, mime = {"/": ("index.html", "text/html"), "/profile": ("profile.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/profile.js": ("profile.js", "text/javascript"), "/style.css": ("style.css", "text/css")}[path]
                 self.send(200, (STATIC / name).read_bytes(), mime + "; charset=utf-8")
             else:
                 self.send(404, {"error": "Not found."})
@@ -51,7 +53,10 @@ def handler_for(store):
                 if not 0 < length <= 16384:
                     raise ValidationError("Request must contain at most 16 KB of JSON.")
                 data = json.loads(self.rfile.read(length))
-                if self.path == "/api/sessions":
+                if self.path == "/api/profile":
+                    self.send(200, {"profile": store.save_profile(profile_input(data))})
+                    return
+                elif self.path == "/api/sessions":
                     result = store.add_session(session_input(data))
                 elif self.path == "/api/runs":
                     result = store.add_run(run_input(data))

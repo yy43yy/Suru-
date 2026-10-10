@@ -28,6 +28,13 @@ stored in `data/suru.sqlite3`, excluded from Git. The server binds only to
 
 ## First working loop
 
+New runners start at `/profile`: choose a goal, typical weekly distance, available
+running days, and an optional long-run day. Save to reach Today. Returning runners
+go directly to Today and can use **Edit profile** to change these answers. The
+single local profile persists across restarts; existing journal records are
+preserved. The goal carries into new check-ins. Schedule and distance are saved
+as context for the next planning increment, not used to prescribe workouts yet.
+
 1. Select a goal and enter the planned run and time available.
 2. Check in with sleep, energy, fatigue, leg soreness, and recent training load.
 3. Read the suggested session, reasons, separate state summaries, and uncertainty.
@@ -73,7 +80,7 @@ only used here to syntax-check the frontend.
 
 ## Next increments
 
-- Runner profiles and structured, editable multi-day plans.
+- Structured, editable multi-day plans using the saved runner profile.
 - Run completion/editing and an explicit skipped-session outcome.
 - Goal-specific plan generation with reviewed workout templates.
 - Baseline and trend assessment after suitable history is available.

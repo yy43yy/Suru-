@@ -40,6 +40,33 @@ def text_field(data, key, limit=500):
     return value.strip()
 
 
+WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+
+
+def profile_input(data):
+    """Validate stable runner context; daily recovery belongs in the check-in."""
+    if not isinstance(data, dict):
+        raise ValidationError("Enter a JSON object.")
+    days = data.get("running_days")
+    if not isinstance(days, list) or not days:
+        raise ValidationError("Choose at least one available running day.")
+    if any(not isinstance(day, str) or day not in WEEKDAYS for day in days):
+        raise ValidationError("Choose valid weekdays for your running days.")
+    if len(set(days)) != len(days):
+        raise ValidationError("Each running day can only be selected once.")
+    long_day = data.get("long_run_day")
+    if long_day == "":
+        long_day = None
+    if long_day is not None and long_day not in days:
+        raise ValidationError("Your long-run day must be one of your available running days.")
+    return {
+        "goal": choice(data, "goal", ("fitness", "race")),
+        "weekly_distance_km": number(data, "weekly_distance_km", 0, 300),
+        "running_days": [day for day in WEEKDAYS if day in days],
+        "long_run_day": long_day,
+    }
+
+
 def session_input(data):
     if not isinstance(data, dict):
         raise ValidationError("Enter a JSON object.")

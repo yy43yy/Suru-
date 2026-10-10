@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from suru.domain import ValidationError, recommend, run_input, session_input
+from suru.domain import ValidationError, profile_input, recommend, run_input, session_input
 from suru.server import handler_for
 from suru.storage import Store
 
@@ -19,6 +19,33 @@ def checkin(**changes):
         "energy": "normal", "fatigue": "low", "soreness": "none",
         "recent_load": "usual", **changes,
     })
+
+
+class ProfileTests(unittest.TestCase):
+    def test_valid_profile_normalizes_day_order(self):
+        result = profile_input({"goal":"race", "weekly_distance_km":"35.5",
+                                "running_days":["sun", "tue"], "long_run_day":"sun"})
+        self.assertEqual(result["weekly_distance_km"], 35.5)
+        self.assertEqual(result["running_days"], ["tue", "sun"])
+        self.assertEqual(result["long_run_day"], "sun")
+
+    def test_long_run_preference_is_optional(self):
+        for value in (None, ""):
+            result = profile_input({"goal":"fitness", "weekly_distance_km":0,
+                                    "running_days":["mon"], "long_run_day":value})
+            self.assertIsNone(result["long_run_day"])
+
+    def test_invalid_profiles_are_rejected(self):
+        valid = {"goal":"fitness", "weekly_distance_km":30, "running_days":["mon"], "long_run_day":None}
+        invalid = [{"running_days":[]}, {"running_days":"mon"}, {"running_days":["mon","mon"]},
+                   {"running_days":["noday"]}, {"running_days":[[]]}, {"long_run_day":"sun"},
+                   {"weekly_distance_km":-1}, {"weekly_distance_km":"NaN"}, {"weekly_distance_km":True},
+                   {"goal":"other"}]
+        for changes in invalid:
+            with self.subTest(changes=changes), self.assertRaises(ValidationError):
+                profile_input({**valid, **changes})
+        with self.assertRaises(ValidationError):
+            profile_input([])
 
 
 class RecommendationTests(unittest.TestCase):
@@ -126,12 +153,35 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.request("/api/missing")[0], 404)
 
     def test_frontend_assets_are_served_with_security_headers(self):
-        for path, content_type in (("/","text/html"),("/app.js","text/javascript"),("/style.css","text/css")):
+        for path, content_type in (("/","text/html"),("/profile","text/html"),("/profile.js","text/javascript"),("/app.js","text/javascript"),("/style.css","text/css")):
             with self.subTest(path=path), urlopen(self.url+path, timeout=5) as response:
                 self.assertEqual(response.status, 200)
                 self.assertTrue(response.headers["Content-Type"].startswith(content_type))
                 self.assertIn("frame-ancestors 'none'",response.headers["Content-Security-Policy"])
                 self.assertTrue(response.read())
+
+    def test_profile_setup_edit_and_restart_preserve_history(self):
+        self.assertEqual(self.request("/api/profile"), (200, {"profile":None}))
+        session = self.store.add_session(checkin())
+        original = {"goal":"race", "weekly_distance_km":35, "running_days":["tue","sun"], "long_run_day":"sun"}
+        self.assertEqual(self.request("/api/profile", original), (200, {"profile":original}))
+        self.assertEqual(self.request("/api/profile")[1]["profile"], original)
+        self.assertEqual(Store(self.db).get_profile(), original)
+        edited = {**original, "goal":"fitness", "weekly_distance_km":40, "long_run_day":None}
+        self.assertEqual(self.request("/api/profile", edited)[0], 200)
+        reopened = Store(self.db)
+        self.assertEqual(reopened.get_profile(), edited)
+        self.assertEqual(reopened.history()["sessions"][0]["id"], session["id"])
+        with reopened.connect() as db:
+            self.assertEqual(db.execute("SELECT COUNT(*) FROM runner_profile").fetchone()[0], 1)
+
+    def test_invalid_profile_update_does_not_replace_saved_profile(self):
+        valid = {"goal":"fitness", "weekly_distance_km":20, "running_days":["mon"], "long_run_day":None}
+        self.request("/api/profile", valid)
+        code, error = self.request("/api/profile", {**valid, "long_run_day":"sun"})
+        self.assertEqual(code, 400)
+        self.assertIn("available running days", error["error"])
+        self.assertEqual(self.store.get_profile(), valid)
 
 
 if __name__ == "__main__":

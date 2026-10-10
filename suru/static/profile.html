@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up your profile — Suru</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/profile.js" defer></script>
+</head>
+<body>
+  <header><a class="brand" href="/" aria-label="Suru home">suru<span>●</span></a><span class="badge">YOUR RUNNING STARTS HERE</span><a id="back-to-today" href="/" hidden>Back to Today ↗</a></header>
+  <main class="profile-main">
+    <section class="intro"><p class="eyebrow">LET’S GET TO KNOW YOUR RUNNING</p><h1>Your running.<br>Your <em>rhythm.</em></h1><p>A few details to start your profile.<br>You can come back and change them anytime.</p></section>
+    <section class="card profile-card" aria-labelledby="profile-title">
+      <div class="section-heading"><span class="step">01</span><div><p class="eyebrow">YOUR STARTING POINT</p><h2 id="profile-title">Set up your running profile</h2></div></div>
+      <form id="profile-form">
+        <fieldset id="profile-fields" disabled>
+          <div class="fields">
+            <label>What are you running toward?<select name="goal" required><option value="">Choose your goal</option><option value="fitness">General running fitness</option><option value="race">Race preparation</option></select></label>
+            <label>Current weekly distance · km<input name="weekly_distance_km" type="number" min="0" max="300" step="0.1" placeholder="For example, 35" required aria-describedby="distance-help"></label>
+          </div>
+          <p class="hint" id="distance-help">Use a typical recent week, rather than the distance you hope to run.</p>
+          <div class="divider"></div>
+          <fieldset class="day-picker"><legend>Which days can you usually run?</legend><p class="hint" id="days-help">Choose at least one. These are available days, not a commitment to run every day.</p>
+            <div class="day-options" aria-describedby="days-help">
+              <label><input type="checkbox" name="running_days" value="mon">Mon</label>
+              <label><input type="checkbox" name="running_days" value="tue">Tue</label>
+              <label><input type="checkbox" name="running_days" value="wed">Wed</label>
+              <label><input type="checkbox" name="running_days" value="thu">Thu</label>
+              <label><input type="checkbox" name="running_days" value="fri">Fri</label>
+              <label><input type="checkbox" name="running_days" value="sat">Sat</label>
+              <label><input type="checkbox" name="running_days" value="sun">Sun</label>
+            </div>
+          </fieldset>
+          <label class="wide">Preferred long-run day · optional<select name="long_run_day" id="long-run-day" aria-describedby="long-day-help"><option value="">No preference</option></select></label>
+          <p class="hint" id="long-day-help">Choose from your available days, or leave this as no preference.</p>
+          <button class="primary" type="submit" id="save-profile">Save profile & go to Today <span>↗</span></button>
+        </fieldset>
+        <p id="profile-status" class="status" role="status" aria-live="polite">Loading…</p>
+        <button type="button" id="profile-retry" class="secondary" hidden>Retry loading</button>
+      </form>
+      <noscript><p>This form needs JavaScript enabled to save your profile.</p></noscript>
+    </section>
+    <footer><strong>suru.</strong><p>Your profile is saved on this computer. Edit it anytime.</p></footer>
+  </main>
+</body>
+</html>

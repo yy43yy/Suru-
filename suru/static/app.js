@@ -102,9 +102,20 @@ $("log-form").addEventListener("submit", async event => {
 const now = new Date();
 $("run-date").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 $("checkin-form").querySelector("button").disabled = true;
-refresh().then(() => {
+async function initialize() {
+  const {profile} = await api("/api/profile");
+  if (!profile) {
+    window.location.replace("/profile");
+    return;
+  }
+  $("checkin-goal").value = profile.goal;
+  const weekdays = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
+  $("profile-summary").textContent = `${profile.goal === "race" ? "Race preparation" : "General running fitness"} · ${profile.weekly_distance_km} km/week · ${profile.running_days.map(day => weekdays[day]).join(", ")}${profile.long_run_day ? ` · Long run: ${weekdays[profile.long_run_day]}` : ""}`;
+  await refresh();
   if (history.sessions.length) showSession(history.sessions[0]);
-}).catch(error => status("history-status",`Could not load history: ${error.message}. Reload to try again.`,true)).finally(() => {
   loading = false;
   $("checkin-form").querySelector("button").disabled = false;
+}
+initialize().catch(error => {
+  status("profile-summary",`Could not load your data: ${error.message}. Reload to try again.`,true);
 });

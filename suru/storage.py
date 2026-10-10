@@ -27,6 +27,11 @@ class Store:
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS runs_date ON runs(date);
+                CREATE TABLE IF NOT EXISTS runner_profile (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    profile TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
             """)
 
     @contextmanager
@@ -39,6 +44,20 @@ class Store:
                 yield db
         finally:
             db.close()
+
+    def get_profile(self):
+        with self.connect() as db:
+            row = db.execute("SELECT profile FROM runner_profile WHERE id = 1").fetchone()
+        return json.loads(row["profile"]) if row else None
+
+    def save_profile(self, profile):
+        # One editable profile for this local, single-user app.
+        with self.connect() as db:
+            db.execute("""INSERT INTO runner_profile(id, profile) VALUES (1, ?)
+                          ON CONFLICT(id) DO UPDATE SET
+                          profile = excluded.profile, updated_at = CURRENT_TIMESTAMP""",
+                       (json.dumps(profile),))
+        return profile
 
     def history(self):
         with self.connect() as db:
