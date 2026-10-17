@@ -5,8 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>History — Suru</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/history.js" defer></script>
 </head>
 <body>
+  
   <header>
     <a class="brand" href="/">suru</a>
     <nav aria-label="Main navigation">
@@ -24,8 +26,8 @@
     </section>
 
     <section aria-label="Saved running history">
-      <p id="history-status" role="status">Your history will appear here.</p>
-      <div id="history-list"></div>
+      <p id="history-status" role="status">Loading history…</p>
+      <pre id="history-data"></pre>
     </section>
   </main>
 </body>

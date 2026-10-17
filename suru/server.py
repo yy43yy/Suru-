@@ -33,8 +33,8 @@ def handler_for(store):
                 self.send(200, store.history())
             elif path == "/api/profile":
                 self.send(200, {"profile": store.get_profile()})
-            elif path in ("/", "/profile","/history", "/app.js", "/profile.js", "/style.css", "/onboarding.css"):
-                name, mime = {"/": ("index.html", "text/html"),"/history":("history.html","text/html"), "/profile": ("profile.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/profile.js": ("profile.js", "text/javascript"), "/style.css": ("style.css", "text/css"), "/onboarding.css": ("onboarding.css", "text/css")}[path]
+            elif path in ("/", "/profile","/history","/history.js", "/app.js", "/profile.js", "/style.css", "/onboarding.css"):
+                name, mime = {"/": ("index.html", "text/html"),"/history":("history.html","text/html"),"/history.js": ("history.js", "text/javascript"), "/profile": ("profile.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/profile.js": ("profile.js", "text/javascript"), "/style.css": ("style.css", "text/css"), "/onboarding.css": ("onboarding.css", "text/css")}[path]
                 self.send(200, (STATIC / name).read_bytes(), mime + "; charset=utf-8")
             else:
                 self.send(404, {"error": "Not found."})
