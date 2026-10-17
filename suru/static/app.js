@@ -1,106 +1,83 @@
 "use strict";
-const $ = (id) => document.getElementById(id);
+const $ = id => document.getElementById(id);
+const {api, bindRunLog} = window.Suru;
 const labels = {easy:"Easy run",long:"Long run",tempo:"Tempo run",intervals:"Intervals",rest:"Recovery day"};
+const now = new Date();
+const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
 let history = {sessions:[], runs:[]};
 let selectedId = null;
 let loading = true;
 
-async function api(path, data) {
-  const response = await fetch(path, data === undefined ? {} : {
-    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Something went wrong. Please try again.");
-  return result;
-}
 function node(tag, text, className) {
-  const el = document.createElement(tag);
-  el.textContent = text;
-  if (className) el.className = className;
-  return el;
+  const element = document.createElement(tag);
+  element.textContent = text;
+  if (className) element.className = className;
+  return element;
 }
 function status(id, message, error = false) {
   $(id).textContent = message;
   $(id).classList.toggle("error", error);
 }
 function list(id, items) { $(id).replaceChildren(...items.map(item => node("li", item))); }
+
 function showSession(session, scroll = false) {
   selectedId = session.id;
   const rec = session.recommendation;
   $("recommendation-empty").hidden = true;
   $("recommendation-content").hidden = false;
-  $("recommendation-date").textContent = `${session.date} · Planned: ${labels[session.checkin.session_type]} / ${session.checkin.planned_minutes} min`;
+  $("recommendation-date").textContent = `Planned: ${labels[session.checkin.session_type]} · ${session.checkin.planned_minutes} min`;
   $("action").textContent = {follow:"FOLLOW YOUR PLAN",adjust:"ADAPT TODAY",rest:"RECOVER TODAY"}[rec.action];
   $("suggested-run").textContent = rec.minutes ? `${rec.minutes} min · ${labels[rec.session_type]}` : "Take a recovery day";
   $("intensity").textContent = rec.intensity;
   $("states").replaceChildren(...Object.entries(rec.states).map(([key,value]) => {
-    const el = node("div", "", "state");
-    el.append(node("strong", key), node("span", value));
-    return el;
+    const element = node("div", "", "state");
+    element.append(node("strong", key), node("span", value));
+    return element;
   }));
-  list("reasons", rec.reasons); list("uncertainty", rec.uncertainty);
-  const logged = history.runs.some(run => run.session_id === session.id);
-  $("log-card").hidden = logged;
+  list("reasons", rec.reasons);
+  list("uncertainty", rec.uncertainty);
+  const run = history.runs.find(run => run.session_id === session.id);
+  $("log-card").hidden = Boolean(run) || rec.action === "rest";
+  $("log-complete").hidden = !run;
+  if (run) $("log-complete").textContent = `Run logged · ${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10. View it in History.`;
   $("log-form").reset();
-  $("log-form").querySelector("button").hidden = false;
   $("session-id").value = session.id;
   status("log-status", "");
   if (scroll) $("recommendation-title").scrollIntoView({behavior:"smooth",block:"start"});
 }
-function renderHistory() {
-  if (!history.sessions.length) {
-    $("history-list").replaceChildren(node("div", "Your first check-in starts your journal. Completed runs will help inform future suggestions.", "history-empty"));
-    return;
-  }
-  $("history-list").replaceChildren(...history.sessions.map(session => {
-    const row = node("div", "", "history-row");
-    const body = node("div", "");
-    body.append(node("strong", `${labels[session.recommendation.session_type]}${session.recommendation.minutes ? ` · ${session.recommendation.minutes} min suggested` : ""}`));
-    const run = history.runs.find(r => r.session_id === session.id);
-    body.append(node("p", run ? `Completed ${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10 · ${ {recommendation:"Followed suggestion",original:"Followed original plan",other:"Chose another session"}[run.choice]}` : "Check-in saved · No completed run logged"));
-    if (session.checkin.notes) body.append(node("p", `Check-in: ${session.checkin.notes}`, "history-note"));
-    if (run?.notes) body.append(node("p", `Run: ${run.notes}`, "history-note"));
-    const button = node("button", run ? "View" : "View / log");
-    button.type = "button";
-    button.addEventListener("click", () => showSession(session,true));
-    row.append(node("span",session.date),body,button);
-    return row;
-  }));
-}
-async function refresh() {
-  history = await api("/api/history");
-  renderHistory();
-}
-async function submit(form, statusId, work) {
-  const button = form.querySelector("button[type=submit]");
-  button.disabled = true;
-  status(statusId,"Saving…");
-  try { await work(Object.fromEntries(new FormData(form))); }
-  catch (error) { status(statusId,error.message,true); }
-  finally { button.disabled = false; }
-}
+
 $("checkin-form").addEventListener("submit", async event => {
   event.preventDefault();
   if (loading) return;
-  await submit(event.target,"checkin-status",async data => {
-    const session = await api("/api/sessions",data);
+  const form = event.target;
+  const button = form.querySelector("button[type=submit]");
+  if (button.disabled) return;
+  button.disabled = true;
+  status("checkin-status", "Saving…");
+  try {
+    const session = await api("/api/sessions", Object.fromEntries(new FormData(form)));
     history.sessions.unshift(session);
-    renderHistory(); showSession(session,true);
-    status("checkin-status","Check-in and recommendation saved.");
-  });
+    showSession(session, true);
+    status("checkin-status", "Check-in and recommendation saved.");
+  } catch (error) {
+    status("checkin-status", error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 });
-$("log-form").addEventListener("submit", async event => {
-  event.preventDefault();
-  await submit(event.target,"log-status",async data => {
-    const run = await api("/api/runs",data);
+
+bindRunLog($("log-form"), {
+  message: $("log-status"),
+  onSaved(run) {
     history.runs.unshift(run);
-    renderHistory();
-    status("log-status","Run saved. Your next check-in will consider this session.");
-    event.target.querySelector("button").hidden = true;
-  });
+    if (run.session_id === selectedId) showSession(history.sessions.find(session => session.id === selectedId));
+    status("checkin-status", "Run saved. You can review it in History.");
+    $("log-complete").focus({preventScroll:true});
+  }
 });
-const now = new Date();
-$("run-date").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+
+$("run-date").value = today;
+$("today-date").textContent = now.toLocaleDateString("en-GB", {weekday:"long",day:"numeric",month:"long"});
 $("checkin-form").querySelector("button").disabled = true;
 async function initialize() {
   const {profile} = await api("/api/profile");
@@ -109,13 +86,19 @@ async function initialize() {
     return;
   }
   $("checkin-goal").value = profile.goal;
-  const weekdays = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
-  $("profile-summary").textContent = `${profile.goal === "race" ? "Race preparation" : "General running fitness"} · ${profile.weekly_distance_km} km/week · ${profile.running_days.map(day => weekdays[day]).join(", ")}${profile.long_run_day ? ` · Long run: ${weekdays[profile.long_run_day]}` : ""}`;
-  await refresh();
-  if (history.sessions.length) showSession(history.sessions[0]);
+  $("profile-summary").textContent = `${profile.goal === "race" ? "Race preparation" : "General running fitness"} · ${profile.weekly_distance_km} km/week`;
+  history = await api("/api/history");
+  const currentSession = history.sessions.filter(session => session.date === today).sort((a,b) => b.id - a.id)[0];
+  if (currentSession) {
+    for (const [key, value] of Object.entries(currentSession.checkin)) {
+      const field = $("checkin-form").elements.namedItem(key);
+      if (field) field.value = value ?? "";
+    }
+    showSession(currentSession);
+  }
   loading = false;
   $("checkin-form").querySelector("button").disabled = false;
 }
 initialize().catch(error => {
-  status("profile-summary",`Could not load your data: ${error.message}. Reload to try again.`,true);
+  status("profile-summary", `Could not load your data: ${error.message}. Reload to try again.`, true);
 });

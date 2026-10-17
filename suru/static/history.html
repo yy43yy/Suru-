@@ -5,30 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>History — Suru</title>
   <link rel="stylesheet" href="/style.css">
+  <script src="/run-log.js" defer></script>
   <script src="/history.js" defer></script>
 </head>
 <body>
-  
   <header>
-    <a class="brand" href="/">suru</a>
-    <nav aria-label="Main navigation">
+    <a class="brand" href="/" aria-label="Suru home">suru<span>●</span></a>
+    <span class="badge">YOUR RUNNING JOURNAL</span>
+    <nav class="header-links" aria-label="Main navigation">
       <a href="/">Today</a>
       <a href="/history" aria-current="page">History</a>
       <a href="/profile">Profile</a>
     </nav>
   </header>
-
-  <main>
+  <main class="journal-main">
     <section class="intro">
-      <p class="eyebrow">YOUR RUNNING JOURNAL</p>
+      <p class="eyebrow">THE DAYS ADD UP</p>
       <h1>History</h1>
-      <p>Look back at your runs and how they felt.</p>
+      <p>Your plans, the adjustments, and how it actually went.</p>
     </section>
-
-    <section aria-label="Saved running history">
-      <p id="history-status" role="status">Loading history…</p>
-      <pre id="history-data"></pre>
+    <div class="journal-toolbar">
+      <p>Newest first · Your check-ins and completed runs</p>
+      <button class="secondary" id="add-activity" type="button" aria-expanded="false" aria-controls="past-activity-panel">+ Log a past run</button>
+    </div>
+    <section class="card past-activity-panel" id="past-activity-panel" aria-labelledby="past-activity-title" hidden>
+      <p class="eyebrow">ADD TO YOUR JOURNAL</p>
+      <h2 id="past-activity-title" tabindex="-1">Log a past run</h2>
+      <p class="hint">Already went for a run? Record what you did, even without a check-in.</p>
+      <form id="past-activity-form">
+        <div class="fields">
+          <label>Run date<input name="date" id="past-activity-date" type="date" required></label>
+          <label>Run type<select name="session_type"><option value="easy">Easy run</option><option value="long">Long run</option><option value="tempo">Tempo run</option><option value="intervals">Intervals</option></select></label>
+          <label>Duration · minutes<input name="minutes" type="number" min="1" max="600" step="0.1" required></label>
+          <label>Distance · km<input name="distance_km" type="number" min="0.01" max="300" step="0.01" required></label>
+          <label>Perceived effort · 1–10<input name="effort" type="number" min="1" max="10" step="1" required></label>
+        </div>
+        <label class="wide">Run notes<textarea name="notes" maxlength="500" rows="2" placeholder="How did it feel?"></textarea></label>
+        <p class="hint">1 = very easy · 10 = maximal effort. If this run already has a check-in, log it from that card below instead.</p>
+        <div class="past-activity-actions"><button class="primary" type="submit">Save past run</button><button class="secondary" id="cancel-activity" type="button">Cancel</button></div>
+        <p class="status" id="past-activity-status" role="status"></p>
+      </form>
     </section>
+    <section aria-label="Saved running history" aria-busy="true" id="journal">
+      <p id="history-status" class="status" role="status">Loading your journal…</p>
+      <button id="history-retry" class="secondary" type="button" hidden>Try again</button>
+      <div id="history-list"></div>
+    </section>
+    <footer><strong>suru.</strong><p>Saved on this computer · Provisional recommendations</p></footer>
   </main>
 </body>
 </html>
