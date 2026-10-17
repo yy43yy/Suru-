@@ -1,6 +1,6 @@
 "use strict";
 const $ = id => document.getElementById(id);
-const {api, bindRunLog} = window.Suru;
+const {api, bindRunLog, settingLabel} = window.Suru;
 const labels = {easy:"Easy run",long:"Long run",tempo:"Tempo run",intervals:"Intervals",rest:"Recovery day"};
 const now = new Date();
 const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
@@ -25,7 +25,7 @@ function showSession(session, scroll = false) {
   const rec = session.recommendation;
   $("recommendation-empty").hidden = true;
   $("recommendation-content").hidden = false;
-  $("recommendation-date").textContent = `Planned: ${labels[session.checkin.session_type]} · ${session.checkin.planned_minutes} min`;
+  $("recommendation-date").textContent = `Planned: ${labels[session.checkin.session_type]} · ${session.checkin.planned_minutes} min · ${settingLabel(session.checkin.setting)}`;
   $("action").textContent = {follow:"FOLLOW YOUR PLAN",adjust:"ADAPT TODAY",rest:"RECOVER TODAY"}[rec.action];
   $("suggested-run").textContent = rec.minutes ? `${rec.minutes} min · ${labels[rec.session_type]}` : "Take a recovery day";
   $("intensity").textContent = rec.intensity;

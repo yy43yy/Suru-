@@ -35,5 +35,9 @@ window.Suru = (() => {
     });
   }
 
-  return {api, bindRunLog};
+  function settingLabel(value) {
+    return {outdoor:"Outdoor", treadmill:"Treadmill"}[value] || "Setting not recorded";
+  }
+
+  return {api, bindRunLog, settingLabel};
 })();

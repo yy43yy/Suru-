@@ -56,6 +56,10 @@ for goals and availability. Today restores only the current day's latest check-i
 Older sessions remain in History. A rest suggestion requires no completed-run log.
 Detailed recovery context stays collapsed until requested on Today and History.
 
+**Run setting** is separate from the session type: choose Outdoor or Treadmill
+on Today or when adding a past run. It is saved and shown in History; it does not
+change recommendation rules. Older records retain an unrecorded setting.
+
 - `suru/domain.py`: input validation and a pure recommendation function.
 - `suru/storage.py`: SQLite transactions, history, and persisted rule versions.
 - `suru/server.py`: local HTTP API and an explicit static-file allowlist.

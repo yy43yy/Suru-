@@ -74,10 +74,13 @@ try {
   assert.equal(await evaluate('document.getElementById("recommendation-empty").hidden'),false);
   assert.equal(await evaluate('document.querySelector("#history-list")'),null);
   assert.equal(await evaluate('document.getElementById("run-date").type'),'hidden');
+  assert.deepEqual(await evaluate('Array.from(document.querySelector("#checkin-form [name=setting]").options).map(option=>option.value)'),['outdoor','treadmill']);
+  await evaluate('document.querySelector("#checkin-form [name=setting]").value="treadmill"');
   assert.deepEqual(await evaluate('Array.from(document.querySelectorAll("nav a")).map(a=>a.textContent)'),['Today','History','Profile']);
   assert.equal(await evaluate('document.querySelector("nav [aria-current=page]").textContent'),'Today');
   await evaluate('document.querySelector("#checkin-form [name=sleep_hours]").value="8"; document.querySelector("#checkin-form [name=recent_load]").value="usual"; document.getElementById("checkin-form").requestSubmit()');
   await waitFor(()=>evaluate('!document.getElementById("log-card").hidden'));
+  assert.ok(await evaluate('document.getElementById("recommendation-date").textContent.includes("Treadmill")'));
   assert.equal(await evaluate('document.getElementById("run-date").value'),today);
   assert.equal(await evaluate('document.querySelector("#recommendation-content details").open'),false);
   await evaluate('window.runForm=document.getElementById("log-form"); runForm.elements.minutes.value="35"; runForm.elements.distance_km.value="5.5"; runForm.elements.effort.value="4"; window.originalFetch=window.fetch; window.fetch=(...args)=>args[0]==="/api/runs" ? Promise.resolve(new Response(JSON.stringify({error:"Try saving again"}),{status:500})) : originalFetch(...args); runForm.requestSubmit()');
@@ -91,6 +94,7 @@ try {
   assert.equal(await evaluate('document.getElementById("log-card").hidden'),true);
   assert.equal(await evaluate('document.getElementById("log-complete").hidden'),false);
   assert.equal(await evaluate('document.querySelector("#checkin-form [name=sleep_hours]").value'),'8');
+  assert.equal(await evaluate('document.querySelector("#checkin-form [name=setting]").value'),'treadmill');
   if (process.argv.includes('--screenshots')) {
     await command('Emulation.setDeviceMetricsOverride',{width:1100,height:1050,deviceScaleFactor:1,mobile:false});
     await evaluate('scrollTo(0,0)');

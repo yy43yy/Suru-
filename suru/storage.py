@@ -29,7 +29,7 @@ class Store:
                 CREATE INDEX IF NOT EXISTS runs_date ON runs(date);
                 CREATE TABLE IF NOT EXISTS activities (
                     id INTEGER PRIMARY KEY, date TEXT NOT NULL,
-                    session_type TEXT NOT NULL, minutes REAL NOT NULL,
+                    session_type TEXT NOT NULL, setting TEXT, minutes REAL NOT NULL,
                     distance_km REAL NOT NULL, effort REAL NOT NULL,
                     notes TEXT NOT NULL,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +41,10 @@ class Store:
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            # Older runs have no recorded setting; preserve that distinction.
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(activities)")}
+            if "setting" not in columns:
+                db.execute("ALTER TABLE activities ADD COLUMN setting TEXT")
 
     @contextmanager
     def connect(self):
@@ -80,9 +84,9 @@ class Store:
     def add_activity(self, activity):
         with self.connect() as db:
             cursor = db.execute(
-                """INSERT INTO activities(date, session_type, minutes, distance_km, effort, notes)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                tuple(activity[key] for key in ("date", "session_type", "minutes", "distance_km", "effort", "notes")))
+                """INSERT INTO activities(date, session_type, setting, minutes, distance_km, effort, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                tuple(activity[key] for key in ("date", "session_type", "setting", "minutes", "distance_km", "effort", "notes")))
             return {"id": cursor.lastrowid, **activity}
 
     def add_session(self, checkin):

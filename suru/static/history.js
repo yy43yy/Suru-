@@ -1,5 +1,5 @@
 "use strict";
-const {api, bindRunLog} = window.Suru;
+const {api, bindRunLog, settingLabel} = window.Suru;
 
 const labels = {easy:"Easy run", long:"Long run", tempo:"Tempo run", intervals:"Intervals", rest:"Rest recommended"};
 const choices = {recommendation:"Followed Suru’s suggestion", original:"Followed original plan", other:"Chose another session"};
@@ -116,12 +116,13 @@ function sessionCard(session, run) {
     ? `${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10`
     : rest ? "A recovery day was suggested. No run log needed."
     : rec.action === "adjust" ? "Suru adjusted your original plan." : "Your original plan fits this check-in.";
-  summary.append(heading, el("span", description, "journal-description"), el("span", "Planned: " + sessionLabel(checkin.session_type, checkin.planned_minutes), "journal-planned"));
+  summary.append(heading, el("span", `${description} · ${settingLabel(checkin.setting)}`, "journal-description"), el("span", "Planned: " + sessionLabel(checkin.session_type, checkin.planned_minutes), "journal-planned"));
   const toggle = el("span", "", "journal-toggle");
   toggle.append(el("span", run || rest ? "View details" : "View details / Log run", "when-closed"), el("span", "Close details", "when-open"), el("span", "⌄", "journal-chevron"));
   summary.append(toggle);
   const detail = el("div", "", "journal-detail");
   detail.append(facts("Plan & suggestion", [
+    ["Run setting", settingLabel(checkin.setting)],
     ["Original plan", sessionLabel(checkin.session_type, checkin.planned_minutes)],
     ["Time available", `${checkin.available_minutes} min`],
     ["Suru suggested", sessionLabel(rec.session_type, rec.minutes)],
@@ -230,13 +231,14 @@ function activityCard(activity) {
   const heading = el("div", "", "journal-card-heading");
   heading.append(el("span", sessionLabel(activity.session_type, activity.minutes), "journal-run-title"), el("span", "Completed", "journal-status is-complete"));
   summary.append(heading,
-    el("span", `${activity.distance_km} km in ${activity.minutes} min · Effort ${activity.effort}/10`, "journal-description"),
+    el("span", `${activity.distance_km} km in ${activity.minutes} min · Effort ${activity.effort}/10 · ${settingLabel(activity.setting)}`, "journal-description"),
     el("span", "Added run · No check-in or suggestion", "journal-planned"));
   const toggle = el("span", "", "journal-toggle");
   toggle.append(el("span", "View details", "when-closed"), el("span", "Close details", "when-open"), el("span", "⌄", "journal-chevron"));
   summary.append(toggle);
   const detail = el("div", "", "journal-detail");
   detail.append(facts("Actual run", [
+    ["Run setting", settingLabel(activity.setting)],
     ["Run type", labels[activity.session_type]], ["Duration", `${activity.minutes} min`],
     ["Distance", `${activity.distance_km} km`], ["Effort", `${activity.effort}/10`]
   ]));

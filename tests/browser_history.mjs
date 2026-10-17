@@ -113,6 +113,7 @@ try {
   // Add a completed activity without a check-in and preserve answers after failure.
   await evaluate('document.getElementById("add-activity").click()');
   assert.equal(await evaluate('document.getElementById("past-activity-panel").hidden'),false);
+  await evaluate('document.querySelector("#past-activity-form [name=setting]").value="treadmill"');
   assert.equal(await evaluate('document.getElementById("past-activity-form").checkValidity()'),false);
   await evaluate(`window.pastForm=document.getElementById('past-activity-form'); pastForm.elements.date.value='2999-01-01'`);
   assert.equal(await evaluate('pastForm.elements.date.validity.rangeOverflow'),true);
@@ -136,6 +137,7 @@ try {
   await waitFor(() => evaluate('document.querySelectorAll("[data-activity-id]").length===1'));
   assert.equal(await evaluate('document.getElementById("past-activity-panel").hidden'),true);
   assert.ok(await evaluate('document.querySelector("[data-activity-id]").textContent.includes("10.5 km")'));
+  assert.ok(await evaluate('document.querySelector("[data-activity-id]").textContent.includes("Treadmill")'));
   assert.ok(await evaluate('document.querySelector("[data-activity-id]").textContent.includes("No check-in or suggestion")'));
   assert.equal(await evaluate('document.querySelectorAll(".journal-day").length'),5);
   assert.equal(await evaluate('document.querySelectorAll("[data-session-id] .is-complete").length'),2);
@@ -145,6 +147,7 @@ try {
   await screenshot('past-run-timeline.png');
   const afterActivity = await request('/api/history');
   assert.equal(afterActivity.activities[0].date,'2026-10-14');
+  assert.equal(afterActivity.activities[0].setting,'treadmill');
   assert.equal(afterActivity.sessions.length,5);
   assert.equal(afterActivity.runs.length,2);
   console.log('Past-run checks passed: future-date validation, mobile form, failed-save retry, independent activity logging, correct date grouping, reload persistence, and preservation of check-in run logs.');
