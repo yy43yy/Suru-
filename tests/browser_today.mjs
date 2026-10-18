@@ -95,6 +95,28 @@ try {
   assert.equal(await evaluate('document.getElementById("log-complete").hidden'),false);
   assert.equal(await evaluate('document.querySelector("#checkin-form [name=sleep_hours]").value'),'8');
   assert.equal(await evaluate('document.querySelector("#checkin-form [name=setting]").value'),'treadmill');
+  // Update the saved run, retry a failed request, and keep the same single record.
+  await evaluate('document.getElementById("edit-run").click()');
+  assert.equal(await evaluate('document.querySelector("#log-form button[type=submit]").textContent'),'Save changes');
+  assert.deepEqual(await evaluate('Array.from(["minutes","distance_km","effort","choice","notes"],name=>document.getElementById("log-form").elements.namedItem(name).value)'),['35','5.5','4','recommendation','']);
+  const originalRuns = await (await fetch(url+'/api/history')).json();
+  await evaluate('window.editForm=document.getElementById("log-form"); editForm.elements.minutes.value="40"; editForm.elements.distance_km.value="6.2"; editForm.elements.effort.value="6"; editForm.elements.choice.value="other"; editForm.elements.notes.value="Corrected distance"; window.originalFetch=window.fetch; window.fetch=(...args)=>args[0]==="/api/runs/update" ? Promise.resolve(new Response(JSON.stringify({error:"Could not update. Try again."}),{status:500})) : originalFetch(...args); editForm.requestSubmit()');
+  await waitFor(()=>evaluate('document.getElementById("log-status").textContent==="Could not update. Try again."'));
+  assert.equal(await evaluate('editForm.elements.distance_km.value'),'6.2');
+  assert.equal(await evaluate('editForm.querySelector("button[type=submit]").disabled'),false);
+  await evaluate('window.fetch=window.originalFetch; editForm.requestSubmit()');
+  await waitFor(()=>evaluate('document.getElementById("log-card").hidden && document.getElementById("log-summary").textContent.includes("6.2 km")'));
+  const updatedRuns = await (await fetch(url+'/api/history')).json();
+  assert.equal(updatedRuns.runs.length,1);
+  assert.equal(updatedRuns.runs[0].id,originalRuns.runs[0].id);
+  assert.equal(updatedRuns.runs[0].date,originalRuns.runs[0].date);
+  await openToday();
+  assert.ok(await evaluate('document.getElementById("log-summary").textContent.includes("6.2 km")'));
+  await evaluate('document.getElementById("edit-run").click()');
+  assert.deepEqual(await evaluate('Array.from(["minutes","distance_km","effort","choice","notes"],name=>document.getElementById("log-form").elements.namedItem(name).value)'),['40','6.2','6','other','Corrected distance']);
+  await evaluate('document.querySelector("#log-form [name=minutes]").value="99"; document.getElementById("cancel-edit-run").click()');
+  assert.equal(await evaluate('document.getElementById("log-card").hidden'),true);
+  assert.ok(await evaluate('document.getElementById("log-summary").textContent.includes("40 min")'));
   if (process.argv.includes('--screenshots')) {
     await command('Emulation.setDeviceMetricsOverride',{width:1100,height:1050,deviceScaleFactor:1,mobile:false});
     await evaluate('scrollTo(0,0)');
@@ -111,6 +133,7 @@ try {
   assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
   await command('Page.navigate',{url:url+'/history'});
   await waitFor(()=>evaluate('document.querySelectorAll(".journal-card").length===3'));
+  assert.ok(await evaluate('document.querySelector("[data-session-id] .is-complete").closest(".journal-card").textContent.includes("6.2 km")'));
   assert.equal(await evaluate('document.querySelector(".journal-context").open'),false);
   assert.equal(await evaluate('document.querySelectorAll(".journal-log").length'),1);
   assert.equal(await evaluate('document.querySelector("nav [aria-current=page]").textContent'),'History');

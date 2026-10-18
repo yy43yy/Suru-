@@ -23,7 +23,8 @@ window.Suru = (() => {
       message.classList.remove("error");
       message.textContent = "Saving…";
       try {
-        const result = await api(path, data(values));
+        const target = typeof path === "function" ? path(values) : path;
+        const result = await api(target, data(values));
         await onSaved(result);
       } catch (error) {
         message.textContent = error.message || "Could not save this run. Please try again.";

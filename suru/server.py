@@ -72,6 +72,9 @@ def handler_for(store):
                     result = store.add_session(session_input(data))
                 elif self.path == "/api/runs":
                     result = store.add_run(run_input(data))
+                elif self.path == "/api/runs/update":
+                    self.send(200, store.update_run(run_input(data)))
+                    return
                 elif self.path == "/api/activities":
                     result = store.add_activity(activity_input(data))
                 else:

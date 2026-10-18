@@ -54,9 +54,12 @@
             <p class="hint">Your plan stays yours. Record the suggestion, your original session, or another choice below.</p>
           </div>
         </section>
-        <p id="log-complete" class="card log-complete" tabindex="-1" role="status" hidden></p>
+        <section id="log-complete" class="card log-complete" tabindex="-1" aria-label="Completed run" hidden>
+          <p id="log-summary" role="status"></p>
+          <button id="edit-run" class="secondary" type="button">Edit run</button>
+        </section>
         <section class="card" id="log-card" hidden>
-          <div class="section-heading"><span class="step">03</span><div><p class="eyebrow">CLOSE THE LOOP</p><h2>How did the run go?</h2></div></div>
+          <div class="section-heading"><span class="step">03</span><div><p class="eyebrow">CLOSE THE LOOP</p><h2 id="log-title">How did the run go?</h2></div></div>
           <form id="log-form"><input name="session_id" id="session-id" type="hidden">
             <div class="fields">
               <label>What did you follow?<select name="choice"><option value="recommendation">Suru’s suggestion</option><option value="original">My original session</option><option value="other">Another session</option></select></label>
@@ -67,6 +70,7 @@
             <label class="wide">Run notes<textarea name="notes" maxlength="500" rows="2" placeholder="How it felt, anything you changed…"></textarea></label>
             <p class="hint">1 = very easy · 10 = maximal effort. Log actual activity even if you changed the suggestion.</p>
             <button class="primary" type="submit">Save completed run <span>✓</span></button>
+            <button id="cancel-edit-run" class="secondary" type="button" hidden>Cancel</button>
             <p id="log-status" class="status" role="status" aria-live="polite"></p>
           </form>
         </section>

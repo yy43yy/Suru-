@@ -98,6 +98,16 @@ class Store:
                                 (checkin["date"], json.dumps(checkin), json.dumps(result)))
             return {"id": cursor.lastrowid, "date": checkin["date"], "checkin": checkin, "recommendation": result}
 
+    def update_run(self, run):
+        with self.connect() as db:
+            saved = db.execute("SELECT id, date FROM runs WHERE session_id = ?", (run["session_id"],)).fetchone()
+            if saved is None:
+                raise ValidationError("This session has no saved run to edit.")
+            db.execute("""UPDATE runs SET minutes = ?, distance_km = ?, effort = ?, choice = ?, notes = ?
+                          WHERE session_id = ?""",
+                       (run["minutes"], run["distance_km"], run["effort"], run["choice"], run["notes"], run["session_id"]))
+            return {"id": saved["id"], "date": saved["date"], **run}
+
     def add_run(self, run):
         with self.connect() as db:
             session = db.execute("SELECT date FROM sessions WHERE id = ?", (run["session_id"],)).fetchone()

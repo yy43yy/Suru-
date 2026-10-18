@@ -7,6 +7,7 @@ const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-
 let history = {sessions:[], runs:[]};
 let selectedId = null;
 let loading = true;
+let editingRun = false;
 
 function node(tag, text, className) {
   const element = document.createElement(tag);
@@ -39,7 +40,13 @@ function showSession(session, scroll = false) {
   const run = history.runs.find(run => run.session_id === session.id);
   $("log-card").hidden = Boolean(run) || rec.action === "rest";
   $("log-complete").hidden = !run;
-  if (run) $("log-complete").textContent = `Run logged · ${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10. View it in History.`;
+  if (run) $("log-summary").textContent = `Run logged · ${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10. View it in History.`;
+  editingRun = false;
+  $("log-title").textContent = "How did the run go?";
+  $("cancel-edit-run").hidden = true;
+  const saveButton = $("log-form").querySelector("button[type=submit]");
+  saveButton.disabled = false;
+  saveButton.textContent = "Save completed run ✓";
   $("log-form").reset();
   $("session-id").value = session.id;
   status("log-status", "");
@@ -66,13 +73,41 @@ $("checkin-form").addEventListener("submit", async event => {
   }
 });
 
+$("edit-run").addEventListener("click", () => {
+  const run = history.runs.find(run => run.session_id === selectedId);
+  if (!run) return;
+  const form = $("log-form");
+  for (const name of ["minutes", "distance_km", "effort", "choice", "notes"]) {
+    form.elements.namedItem(name).value = run[name] ?? "";
+  }
+  editingRun = true;
+  $("log-complete").hidden = true;
+  $("log-card").hidden = false;
+  $("log-title").textContent = "Edit completed run";
+  $("cancel-edit-run").hidden = false;
+  const saveButton = form.querySelector("button[type=submit]");
+  saveButton.disabled = false;
+  saveButton.textContent = "Save changes";
+  status("log-status", "");
+  form.elements.minutes.focus();
+});
+
+$("cancel-edit-run").addEventListener("click", () => {
+  showSession(history.sessions.find(session => session.id === selectedId));
+  $("edit-run").focus();
+});
+
 bindRunLog($("log-form"), {
+  path: () => editingRun ? "/api/runs/update" : "/api/runs",
   message: $("log-status"),
   onSaved(run) {
-    history.runs.unshift(run);
-    if (run.session_id === selectedId) showSession(history.sessions.find(session => session.id === selectedId));
-    status("checkin-status", "Run saved. You can review it in History.");
-    $("log-complete").focus({preventScroll:true});
+    const message = editingRun ? "Run updated. You can review it in History." : "Run saved. You can review it in History.";
+    history.runs = [run, ...history.runs.filter(saved => saved.id !== run.id)];
+    if (run.session_id === selectedId) {
+      showSession(history.sessions.find(session => session.id === selectedId));
+      $("log-complete").focus({preventScroll:true});
+    }
+    status("checkin-status", message);
   }
 });
 

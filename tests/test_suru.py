@@ -149,6 +149,35 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(len(journal["sessions"]), 2)
         self.assertEqual(len(journal["runs"]), 1)
 
+    def test_edit_run_preserves_identity_and_updates_future_training_context(self):
+        session = self.store.add_session(checkin(date="2026-10-08"))
+        original = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation", "notes":"Easy"}
+        _, saved = self.request("/api/runs", original)
+        changes = {**original, "minutes":40, "distance_km":6.2, "effort":8, "choice":"other", "notes":"Corrected effort"}
+        code, updated = self.request("/api/runs/update", changes)
+        self.assertEqual(code, 200)
+        self.assertEqual(updated["id"], saved["id"])
+        self.assertEqual(updated["date"], saved["date"])
+        reopened = Store(self.db).history()
+        self.assertEqual(len(reopened["runs"]), 1)
+        for key, value in changes.items():
+            self.assertEqual(reopened["runs"][0][key], value)
+        self.assertEqual(reopened["sessions"][0]["recommendation"], session["recommendation"])
+        _, next_day = self.request("/api/sessions", checkin())
+        self.assertEqual(next_day["recommendation"]["session_type"], "easy")
+
+    def test_invalid_edit_does_not_replace_or_create_a_run(self):
+        session = self.store.add_session(checkin())
+        original = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation"}
+        self.request("/api/runs", original)
+        before = self.store.history()["runs"]
+        for changes in ({"minutes":0}, {"distance_km":-1}, {"effort":11}, {"choice":"invalid"}, {"notes":[]}):
+            self.assertEqual(self.request("/api/runs/update", {**original, **changes})[0], 400)
+        self.assertEqual(self.request("/api/runs/update", {**original, "session_id":999})[0], 400)
+        pending = self.store.add_session(checkin())
+        self.assertEqual(self.request("/api/runs/update", {**original, "session_id":pending["id"]})[0], 400)
+        self.assertEqual(self.store.history()["runs"], before)
+
     def test_duplicate_log_and_nonexistent_session_rejected(self):
         session = self.store.add_session(checkin())
         run = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation"}
