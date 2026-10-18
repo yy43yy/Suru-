@@ -8,70 +8,55 @@
   <link rel="stylesheet" href="/onboarding.css">
   <script src="/app.js" defer></script>
 </head>
-<body>
-  <header><a class="brand" href="/" aria-label="Suru home">suru<span>●</span></a><span class="badge">RUNNING / EARLY PROTOTYPE</span><nav class="header-links" aria-label="Main navigation"><a href="/profile">Edit profile</a><a href="#history">Run history ↗</a></nav></header>
-  <main>
-    <section class="intro dashboard-intro"><p class="eyebrow">YOUR DAILY RUNNING SPACE</p><h1>Today</h1><p>Check in, adapt your session, and log how it went.</p></section>
-    <p id="profile-summary" class="profile-summary" role="status">Loading your profile…</p>
-    <div class="workspace">
-      <section class="card checkin">
-        <div class="section-heading"><span class="step">01</span><div><p class="eyebrow">THE DAILY CHECK-IN</p><h2>What’s on the plan?</h2></div></div>
-        <form id="checkin-form">
-          <div class="fields">
-            <label>Run date<input name="date" id="run-date" type="date" required></label>
-            <input name="goal" id="checkin-goal" type="hidden">
-            <label>Planned session<select name="session_type"><option value="easy">Easy run</option><option value="long">Long run</option><option value="tempo">Tempo run</option><option value="intervals">Intervals</option></select></label>
-            <label>Planned minutes<input name="planned_minutes" type="number" min="5" max="300" value="45" required></label>
-            <label>Time available · minutes<input name="available_minutes" type="number" min="5" max="300" value="45" required></label>
-            <label>Last night’s sleep · hours<input name="sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="Optional"></label>
-          </div>
-          <div class="divider"></div><h3>How are you arriving today?</h3>
-          <div class="fields">
-            <label>Energy<select name="energy"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option></select></label>
-            <label>Fatigue<select name="fatigue"><option value="low">Low</option><option value="moderate">Moderate</option><option value="high">High</option></select></label>
-            <label>Leg soreness<select name="soreness"><option value="none">None</option><option value="mild">Mild soreness</option><option value="significant">Significant soreness</option><option value="pain">Pain, beyond soreness</option></select></label>
-            <label>Recent training load<select name="recent_load"><option value="unknown">Not sure</option><option value="usual">About usual</option><option value="higher">Higher than usual</option></select></label>
-            <label>HRV · milliseconds<input name="hrv" type="number" min="1" max="500" step="0.1" placeholder="Optional"></label>
-            <label>Anything to record?<input name="notes" maxlength="500" placeholder="Notes for your history"></label>
-          </div>
-          <p class="hint">Notes and HRV are saved for context; they do not drive this prototype’s rules.</p>
-          <button class="primary" type="submit">Find today’s run <span>↗</span></button>
-          <p id="checkin-status" class="status" role="status" aria-live="polite"></p>
-        </form>
-      </section>
-      <div class="right-column">
-        <section class="card recommendation" aria-labelledby="recommendation-title">
-          <div class="section-heading"><span class="step">02</span><div><p class="eyebrow">YOUR NEXT STEP</p><h2 id="recommendation-title">Today’s recommendation</h2></div></div>
-          <div id="recommendation-empty" class="empty"><div class="track" aria-hidden="true">↗</div><h3>A plan with room for you.</h3><p>Complete your check-in to see a suggested session and the reasons behind it.</p></div>
-          <div id="recommendation-content" hidden>
-            <p id="recommendation-date" class="eyebrow"></p><span id="action" class="pill"></span>
-            <h3 id="suggested-run" class="run-title"></h3><p id="intensity"></p>
-            <div id="states" class="states"></div>
-            <h4>Why this fits today</h4><ul id="reasons"></ul>
-            <details><summary>What this suggestion can’t tell us</summary><ul id="uncertainty"></ul></details>
-            <p class="hint">Your plan stays yours. Record the suggestion, your original session, or another choice below.</p>
-          </div>
-        </section>
-        <section class="card" id="log-card" hidden>
-          <div class="section-heading"><span class="step">03</span><div><p class="eyebrow">CLOSE THE LOOP</p><h2>How did the run go?</h2></div></div>
-          <form id="log-form"><input name="session_id" id="session-id" type="hidden">
-            <div class="fields">
-              <label>What did you follow?<select name="choice"><option value="recommendation">Suru’s suggestion</option><option value="original">My original session</option><option value="other">Another session</option></select></label>
-              <label>Actual duration · minutes<input name="minutes" type="number" min="1" max="600" step="0.1" required></label>
-              <label>Distance · km<input name="distance_km" type="number" min="0.01" max="300" step="0.01" required></label>
-              <label>Perceived effort · 1–10<input name="effort" type="number" min="1" max="10" step="1" required></label>
-            </div>
-            <label class="wide">Run notes<textarea name="notes" maxlength="500" rows="2" placeholder="How it felt, anything you changed…"></textarea></label>
-            <p class="hint">1 = very easy · 10 = maximal effort. Log actual activity even if you changed the suggestion.</p>
-            <button class="primary" type="submit">Save completed run <span>✓</span></button>
-            <p id="log-status" class="status" role="status" aria-live="polite"></p>
-          </form>
-        </section>
-        <aside class="footnote"><span>✳</span><p>Recovery has more than one dimension. Suru considers overall fatigue, leg soreness, and recent demands separately.</p></aside>
-      </div>
-    </div>
-    <section class="history-section" id="history"><div class="history-heading"><div><p class="eyebrow">THE DAYS ADD UP</p><h2>Your running journal</h2></div><span class="badge">SAVED ON THIS COMPUTER</span></div><p id="history-status" role="status"></p><div id="history-list"></div></section>
-    <footer><strong>suru.</strong><p>Local prototype · Provisional rules · Plan generation is coming later.</p></footer>
+<body class="daily-page">
+  <header><a class="brand" href="/" aria-label="Suru home">suru<span>●</span></a><nav class="header-links" aria-label="Main navigation"><a href="/" aria-current="page">Today</a><a href="/history">History</a><a href="/profile">Profile</a></nav></header>
+  <main class="daily-main">
+    <section class="daily-welcome"><p class="eyebrow">TODAY, AT YOUR PACE</p><h1>A run that fits<br>how you <em>feel.</em></h1><p>A few questions about your body. One suggestion for today.</p><p id="profile-summary" class="hint">Loading your profile…</p></section>
+    <div id="daily-loading" role="status">Getting your check-in ready…</div><button id="retry-load" class="secondary" type="button" hidden>Retry loading</button>
+    <section id="daily-flow" hidden aria-label="Daily check-in">
+      <div class="onboarding-progress"><span id="daily-step-label">Question 1 of 5</span><span>YOUR DAILY CHECK-IN</span><progress id="daily-progress" value="1" max="5" aria-label="Daily check-in progress"></progress></div>
+      <form id="checkin-form" class="question-card" novalidate>
+        <fieldset id="daily-fields">
+          <section class="question-panel" data-step="0" aria-labelledby="sleep-title">
+            <p class="eyebrow">01 / REST</p><h2 id="sleep-title" tabindex="-1">How did you sleep?</h2><p class="question-description">Think about last night. An estimate is fine.</p>
+            <label class="sleep-input">Hours of sleep · optional<input name="sleep_hours" type="number" min="0" max="24" step="0.1" placeholder="For example, 7.5"></label>
+            <fieldset class="daily-options"><legend>How rested did your sleep feel?</legend><label><input type="radio" name="sleep_quality" value="good" required>Good</label><label><input type="radio" name="sleep_quality" value="okay" required>Okay</label><label><input type="radio" name="sleep_quality" value="poor" required>Poor</label><label><input type="radio" name="sleep_quality" value="unknown" required>Not sure</label></fieldset>
+          </section>
+          <section class="question-panel" data-step="1" aria-labelledby="energy-title" hidden>
+            <p class="eyebrow">02 / ENERGY</p><h2 id="energy-title" tabindex="-1">How much energy<br>do you have today?</h2><p class="question-description">How ready do you feel to get moving?</p>
+            <fieldset class="daily-options"><legend class="sr-only">Energy today</legend><label><input type="radio" name="energy" value="low" required>Low · running feels like a lot</label><label><input type="radio" name="energy" value="normal" required>Usual · about my normal</label><label><input type="radio" name="energy" value="high" required>High · feeling energized</label><label><input type="radio" name="energy" value="unknown" required>Not sure</label></fieldset>
+          </section>
+          <section class="question-panel" data-step="2" aria-labelledby="fatigue-title" hidden>
+            <p class="eyebrow">03 / FATIGUE</p><h2 id="fatigue-title" tabindex="-1">How tired does<br>your body feel?</h2><p class="question-description">Think about heaviness or lingering tiredness, even if you feel motivated.</p>
+            <fieldset class="daily-options"><legend class="sr-only">Body fatigue</legend><label><input type="radio" name="fatigue" value="low" required>Low · feeling fresh</label><label><input type="radio" name="fatigue" value="moderate" required>Some · a little tired</label><label><input type="radio" name="fatigue" value="high" required>High · worn out</label><label><input type="radio" name="fatigue" value="unknown" required>Not sure</label></fieldset>
+          </section>
+          <section class="question-panel" data-step="3" aria-labelledby="soreness-title" hidden>
+            <p class="eyebrow">04 / YOUR BODY</p><h2 id="soreness-title" tabindex="-1">Any soreness<br>or discomfort?</h2><p class="question-description">Choose what best describes your body today.</p>
+            <fieldset class="daily-options"><legend class="sr-only">Soreness or discomfort</legend><label><input type="radio" name="soreness" value="none" required>None · comfortable</label><label><input type="radio" name="soreness" value="mild" required>Mild · a little sore</label><label><input type="radio" name="soreness" value="significant" required>Significant · noticeably sore</label><label><input type="radio" name="soreness" value="pain" required>Pain · beyond normal soreness</label><label><input type="radio" name="soreness" value="unknown" required>Not sure</label></fieldset>
+            <label id="soreness-area-label" class="wide" hidden>Where? · optional<input name="soreness_area" maxlength="80" placeholder="For example, calves or left knee"></label>
+          </section>
+          <section class="question-panel" data-step="4" aria-labelledby="time-title" hidden>
+            <p class="eyebrow">05 / MAKE IT FIT</p><h2 id="time-title" tabindex="-1">How much time<br>do you have?</h2><p class="question-description">Suru will keep the suggestion within your available time.</p>
+            <label class="sleep-input">Available minutes<input name="available_minutes" type="number" min="0" max="300" step="1" placeholder="For example, 30" required></label><p class="hint">No time to run? Enter 0. Taking a day off is an option too.</p>
+          </section>
+          <div class="question-actions"><button id="daily-back" class="back-button" type="button" hidden>← Back</button><button id="daily-next" class="primary" type="submit">Continue <span>→</span></button></div>
+        </fieldset><p id="checkin-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <section id="daily-result" class="card recommendation daily-result" aria-labelledby="recommendation-title" hidden>
+      <p class="eyebrow" id="recommendation-date"></p><span id="action" class="pill"></span><h2 id="recommendation-title" tabindex="-1"></h2><p id="intensity"></p>
+      <h3>Why this fits today</h3><ul id="reasons"></ul><details><summary>What this suggestion can’t tell us yet</summary><ul id="uncertainty"></ul></details>
+      <p id="result-status" class="hint" role="status"></p><div class="result-actions"><button type="button" id="edit-checkin" class="secondary">Edit check-in</button><button type="button" id="open-log" class="primary">Log a completed run</button></div>
+    </section>
+    <section id="log-card" class="card daily-log" hidden aria-labelledby="log-title">
+      <h2 id="log-title" tabindex="-1">How did the run go?</h2><p class="hint">Record what actually happened, even if you chose a different run.</p>
+      <form id="log-form"><input name="session_id" id="session-id" type="hidden"><div class="fields">
+        <label>What did you do?<select name="choice"><option value="recommendation">Followed the suggestion</option><option value="other">Chose a different run</option></select></label>
+        <label>Duration · minutes<input name="minutes" type="number" min="1" max="600" step="0.1" required></label><label>Distance · km<input name="distance_km" type="number" min="0.01" max="300" step="0.01" required></label><label>Perceived effort · 1–10<input name="effort" type="number" min="1" max="10" required></label></div>
+        <label class="wide">Notes · optional<textarea name="notes" maxlength="500" rows="2"></textarea></label><button class="primary" type="submit">Save run <span>✓</span></button><p id="log-status" class="status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+    <p class="setup-footnote">Check in honestly. You can change your answers before choosing what to do.</p>
   </main>
 </body>
 </html>

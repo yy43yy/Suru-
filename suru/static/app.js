@@ -1,121 +1,118 @@
 "use strict";
-const $ = (id) => document.getElementById(id);
-const labels = {easy:"Easy run",long:"Long run",tempo:"Tempo run",intervals:"Intervals",rest:"Recovery day"};
-let history = {sessions:[], runs:[]};
-let selectedId = null;
-let loading = true;
+const $ = id => document.getElementById(id);
+const form = $("checkin-form");
+const panels = Array.from(form.querySelectorAll(".question-panel"));
+let step = 0;
+let busy = false;
+let activeSession = null;
+let runs = [];
 
+function localDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+}
 async function api(path, data) {
-  const response = await fetch(path, data === undefined ? {} : {
-    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Something went wrong. Please try again.");
-  return result;
+  const response = await fetch(path, data === undefined ? {} : {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "Unable to load or save. Please try again.");
+  return body;
 }
-function node(tag, text, className) {
-  const el = document.createElement(tag);
-  el.textContent = text;
-  if (className) el.className = className;
-  return el;
-}
-function status(id, message, error = false) {
-  $(id).textContent = message;
+function status(id, text, error = false) {
+  $(id).textContent = text;
   $(id).classList.toggle("error", error);
 }
-function list(id, items) { $(id).replaceChildren(...items.map(item => node("li", item))); }
-function showSession(session, scroll = false) {
-  selectedId = session.id;
+function setSorenessArea() {
+  $("soreness-area-label").hidden = !["mild","significant","pain"].includes(form.elements.soreness.value);
+}
+function showStep(index, focus = true) {
+  step = index;
+  panels.forEach((panel,i) => { panel.hidden = i !== index; });
+  $("daily-back").hidden = index === 0;
+  $("daily-step-label").textContent = `Question ${index+1} of 5`;
+  $("daily-progress").value = index+1;
+  $("daily-next").textContent = index === 4 ? "See today’s suggestion ↗" : "Continue →";
+  status("checkin-status", "");
+  if (focus) panels[index].querySelector("h2").focus();
+}
+function list(id, values) {
+  $(id).replaceChildren(...values.map(value => {const li = document.createElement("li");li.textContent = value;return li;}));
+}
+function showResult(session, focus = true) {
+  activeSession = session;
   const rec = session.recommendation;
-  $("recommendation-empty").hidden = true;
-  $("recommendation-content").hidden = false;
-  $("recommendation-date").textContent = `${session.date} · Planned: ${labels[session.checkin.session_type]} / ${session.checkin.planned_minutes} min`;
-  $("action").textContent = {follow:"FOLLOW YOUR PLAN",adjust:"ADAPT TODAY",rest:"RECOVER TODAY"}[rec.action];
-  $("suggested-run").textContent = rec.minutes ? `${rec.minutes} min · ${labels[rec.session_type]}` : "Take a recovery day";
+  $("daily-flow").hidden = true;
+  $("daily-result").hidden = false;
+  $("log-card").hidden = true;
+  $("recommendation-date").textContent = `${session.date} / YOUR SUGGESTION`;
+  $("action").textContent = rec.session_type === "rest" ? "ROOM TO RECOVER" : "KEEP IT COMFORTABLE";
+  $("recommendation-title").textContent = rec.session_type === "rest" ? "Make today a recovery day." : `${rec.minutes}-minute easy run`;
   $("intensity").textContent = rec.intensity;
-  $("states").replaceChildren(...Object.entries(rec.states).map(([key,value]) => {
-    const el = node("div", "", "state");
-    el.append(node("strong", key), node("span", value));
-    return el;
-  }));
-  list("reasons", rec.reasons); list("uncertainty", rec.uncertainty);
-  const logged = history.runs.some(run => run.session_id === session.id);
-  $("log-card").hidden = logged;
-  $("log-form").reset();
+  list("reasons",rec.reasons); list("uncertainty",rec.uncertainty);
+  const logged = runs.some(run => run.session_id === session.id);
+  $("open-log").hidden = logged;
+  $("open-log").textContent = rec.session_type === "rest" ? "Ran anyway? Log what happened" : "Log a completed run";
+  status("result-status",logged ? "Your completed run is saved." : rec.session_type === "rest" ? "No run log is needed for a recovery day." : "Suggestion saved. Come back after your run to log how it went.");
+  if (focus) $("recommendation-title").focus();
+}
+function populate(checkin) {
+  for (const key of ["sleep_hours","sleep_quality","energy","fatigue","soreness","soreness_area","available_minutes"]) {
+    if (checkin[key] !== undefined && checkin[key] !== null) form.elements[key].value = checkin[key];
+  }
+  setSorenessArea();
+}
+$("daily-back").addEventListener("click",() => { if (!busy) showStep(step-1); });
+form.querySelectorAll('input[name="soreness"]').forEach(input => input.addEventListener("change",setSorenessArea));
+form.addEventListener("submit",async event => {
+  event.preventDefault();
+  if (busy) return;
+  const invalid = Array.from(panels[step].querySelectorAll("input")).find(input => !input.checkValidity());
+  if (invalid) {invalid.reportValidity();return;}
+  if (step < 4) {showStep(step+1);return;}
+  const data = {...Object.fromEntries(new FormData(form)),date:localDate()};
+  busy = true; $("daily-fields").disabled = true; status("checkin-status","Considering your check-in…");
+  try {
+    const session = await api("/api/daily-checkins",data);
+    showResult(session);
+  } catch (error) {status("checkin-status",error.message,true);}
+  finally {busy = false;$("daily-fields").disabled = false;}
+});
+$("edit-checkin").addEventListener("click",() => {
+  $("daily-result").hidden = true;$("log-card").hidden = true;$("daily-flow").hidden = false;showStep(0);
+});
+$("open-log").addEventListener("click",() => {
+  $("log-form").reset(); $("session-id").value = activeSession.id; $("log-card").hidden = false;
   $("log-form").querySelector("button").hidden = false;
-  $("session-id").value = session.id;
-  status("log-status", "");
-  if (scroll) $("recommendation-title").scrollIntoView({behavior:"smooth",block:"start"});
-}
-function renderHistory() {
-  if (!history.sessions.length) {
-    $("history-list").replaceChildren(node("div", "Your first check-in starts your journal. Completed runs will help inform future suggestions.", "history-empty"));
-    return;
-  }
-  $("history-list").replaceChildren(...history.sessions.map(session => {
-    const row = node("div", "", "history-row");
-    const body = node("div", "");
-    body.append(node("strong", `${labels[session.recommendation.session_type]}${session.recommendation.minutes ? ` · ${session.recommendation.minutes} min suggested` : ""}`));
-    const run = history.runs.find(r => r.session_id === session.id);
-    body.append(node("p", run ? `Completed ${run.distance_km} km in ${run.minutes} min · Effort ${run.effort}/10 · ${ {recommendation:"Followed suggestion",original:"Followed original plan",other:"Chose another session"}[run.choice]}` : "Check-in saved · No completed run logged"));
-    if (session.checkin.notes) body.append(node("p", `Check-in: ${session.checkin.notes}`, "history-note"));
-    if (run?.notes) body.append(node("p", `Run: ${run.notes}`, "history-note"));
-    const button = node("button", run ? "View" : "View / log");
-    button.type = "button";
-    button.addEventListener("click", () => showSession(session,true));
-    row.append(node("span",session.date),body,button);
-    return row;
-  }));
-}
-async function refresh() {
-  history = await api("/api/history");
-  renderHistory();
-}
-async function submit(form, statusId, work) {
-  const button = form.querySelector("button[type=submit]");
-  button.disabled = true;
-  status(statusId,"Saving…");
-  try { await work(Object.fromEntries(new FormData(form))); }
-  catch (error) { status(statusId,error.message,true); }
-  finally { button.disabled = false; }
-}
-$("checkin-form").addEventListener("submit", async event => {
-  event.preventDefault();
-  if (loading) return;
-  await submit(event.target,"checkin-status",async data => {
-    const session = await api("/api/sessions",data);
-    history.sessions.unshift(session);
-    renderHistory(); showSession(session,true);
-    status("checkin-status","Check-in and recommendation saved.");
-  });
+  status("log-status",""); $("log-title").focus();
 });
-$("log-form").addEventListener("submit", async event => {
+$("log-form").addEventListener("submit",async event => {
   event.preventDefault();
-  await submit(event.target,"log-status",async data => {
-    const run = await api("/api/runs",data);
-    history.runs.unshift(run);
-    renderHistory();
-    status("log-status","Run saved. Your next check-in will consider this session.");
-    event.target.querySelector("button").hidden = true;
-  });
+  const button = event.target.querySelector("button");
+  if (button.disabled) return;
+  const data = Object.fromEntries(new FormData(event.target));
+  button.disabled = true; status("log-status","Saving your run…");
+  try {
+    runs.unshift(await api("/api/runs",data));
+    button.hidden = true; $("open-log").hidden = true;
+    status("log-status","Run saved. It will inform your next check-in.");
+    status("result-status","Your completed run is saved.");
+  } catch (error) {status("log-status",error.message,true);}
+  finally {button.disabled = false;}
 });
-const now = new Date();
-$("run-date").value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-$("checkin-form").querySelector("button").disabled = true;
 async function initialize() {
-  const {profile} = await api("/api/profile");
-  if (!profile) {
-    window.location.replace("/profile");
-    return;
+  $("retry-load").hidden = true; status("daily-loading","Getting your check-in ready…");
+  try {
+    const {profile} = await api("/api/profile");
+    if (!profile) {window.location.replace("/profile");return;}
+    $("profile-summary").textContent = `${profile.goal === "race" ? "Race preparation" : "General running fitness"} · ${profile.weekly_distance_km} km/week`;
+    const history = await api("/api/history");
+    runs = history.runs;
+    const saved = history.sessions.find(session => session.date === localDate() && session.checkin.source === "body_checkin");
+    $("daily-loading").hidden = true;
+    if (saved) {populate(saved.checkin);showResult(saved,false);}
+    else {$("daily-flow").hidden = false;showStep(0,false);}
+  } catch (error) {
+    status("daily-loading",error.message,true); $("retry-load").hidden = false;
   }
-  $("checkin-goal").value = profile.goal;
-  const weekdays = {mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun"};
-  $("profile-summary").textContent = `${profile.goal === "race" ? "Race preparation" : "General running fitness"} · ${profile.weekly_distance_km} km/week · ${profile.running_days.map(day => weekdays[day]).join(", ")}${profile.long_run_day ? ` · Long run: ${weekdays[profile.long_run_day]}` : ""}`;
-  await refresh();
-  if (history.sessions.length) showSession(history.sessions[0]);
-  loading = false;
-  $("checkin-form").querySelector("button").disabled = false;
 }
-initialize().catch(error => {
-  status("profile-summary",`Could not load your data: ${error.message}. Reload to try again.`,true);
-});
+$("retry-load").addEventListener("click",initialize);
+initialize();

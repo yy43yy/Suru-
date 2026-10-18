@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .domain import ValidationError, recommend
+from .daily import suggest_daily
 
 
 class Store:
@@ -87,3 +88,18 @@ class Store:
             except sqlite3.IntegrityError:
                 raise ValidationError("This session already has a run logged.") from None
             return {"id": cursor.lastrowid, "date": session["date"], **run}
+
+    def add_daily_session(self, checkin):
+        with self.connect() as db:
+            row = db.execute("SELECT profile FROM runner_profile WHERE id = 1").fetchone()
+            if row is None:
+                raise ValidationError("Set up your runner profile before checking in.")
+            profile = json.loads(row["profile"])
+            runs = [dict(r) for r in db.execute(
+                "SELECT * FROM runs WHERE date <= ? AND date >= date(?, '-14 days')",
+                (checkin["date"], checkin["date"]))]
+            result = suggest_daily(checkin, profile, runs)
+            snapshot = {**checkin, "source": "body_checkin", "profile": profile}
+            cursor = db.execute("INSERT INTO sessions(date, checkin, recommendation) VALUES (?, ?, ?)",
+                                (checkin["date"], json.dumps(snapshot), json.dumps(result)))
+            return {"id": cursor.lastrowid, "date": checkin["date"], "checkin": snapshot, "recommendation": result}

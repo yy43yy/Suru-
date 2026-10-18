@@ -1,12 +1,14 @@
 # Suru
 
 Suru helps experienced runners decide what run makes sense today, using their
-planned session, recent training, recovery, and available time. The product
+body condition, recent training, recovery, and available time. The product
 direction supports race preparation and general fitness, with user-supplied or
 customizable generated plans.
 
-This first runnable slice adapts a **manually entered session**. It does not yet
-generate training plans or prescribe interval structures or race paces.
+Today starts with a **guided daily body check-in**, then suggests an easy run,
+a shorter easy run, or recovery. The runner does not need to select a workout
+first. This prototype does not yet generate training plans, harder workouts,
+interval structures, or race paces.
 
 ## Run locally
 
@@ -39,36 +41,44 @@ Setup presents one question at a time, with progress, Back/Continue navigation,
 and an editable review before saving. Answers remain in the form while moving
 between questions; they are saved to the database only on the final step.
 
-1. Select a goal and enter the planned run and time available.
-2. Check in with sleep, energy, fatigue, leg soreness, and recent training load.
-3. Read the suggested session, reasons, separate state summaries, and uncertainty.
-4. Log actual duration, distance, effort, and whether you followed the suggestion,
-   original plan, or another session.
-5. Make a later check-in: logged demanding runs from the previous two days can
-   inform the next suggestion. View saved recommendations and log pending runs
-   from the journal. A rest recommendation does not require a completed run.
+1. Answer five question cards: sleep (hours and quality), energy, fatigue,
+   soreness (including optional location), and available time.
+2. Move Back/Continue without losing answers, then request today's suggestion.
+3. Read the suggested session, duration, effort guidance, reasons, and limitations.
+4. Edit the check-in or log the actual run. Recovery days need no completed run.
+5. Reopen Today to see today's most recent saved body-check-in suggestion.
+   Completed runs inform subsequent check-ins, including later check-ins that day.
+   Older manually planned sessions remain in History, which is still a raw JSON
+   learning page. Profile setup remains separate from the daily check-in.
 
 ## Architecture
 
 - `suru/domain.py`: input validation and a pure recommendation function.
+- `suru/daily.py`: body-check-in validation and a pure daily session selector.
 - `suru/storage.py`: SQLite transactions, history, and persisted rule versions.
 - `suru/server.py`: local HTTP API and an explicit static-file allowlist.
 - `suru/static/`: responsive, accessible-label web interface; no build step.
 - `tests/test_suru.py`: scenario, persistence, and HTTP integration tests.
 
-Recommendation rules are provisional product experiments. For example, short
-sleep is currently below six hours, a demanding logged run has effort at least
-7/10, and a reduced run uses at most 70% of the planned duration. These choices
-are not validated scientific thresholds or individualized prescriptions.
+Recommendation rules are provisional product experiments. Daily duration starts
+from the median logged run duration over the previous 14 days, capped at 45 minutes,
+or a disclosed 20-minute default if there is no history. Available time caps the
+suggestion. Shorter runs use 70% of that starting duration. Short sleep currently
+means below six hours; sleep quality and hours count as one dimension. A demanding
+logged run has effort at least 7/10. These choices are not validated scientific
+thresholds or individualized prescriptions; no composite readiness score is used.
 Each saved recommendation retains its inputs, reasons, uncertainty, and rule
 version so changes can be reviewed. There is no composite readiness score.
 
-HRV and free-text notes are recorded but do not drive decisions. Personal
+The daily form supports unknown answers and optional sleep duration; missing data
+is disclosed and suggestions stay light. Soreness location is saved and shown in
+the explanation but does not yet produce location-specific rules. Personal HRV
 baselines, performance trends, and detailed load estimates are not implemented.
-Missing history does not imply recovery. Goals are saved as context; both goal
-types currently share adaptation rules, since a manually entered session
-supplies the training intent. The original root scoring scripts remain early
-experiments and are not used by the app.
+Missing history does not imply recovery. Profile goals are saved as context;
+both goal types currently share daily rules. Each body check-in saves a profile
+snapshot and rule version. The earlier manual-session API remains available for
+existing records and tests; the daily UI no longer requires it. The original
+root scoring scripts are not used by the app.
 
 ## Checks
 

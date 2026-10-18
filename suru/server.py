@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from .domain import ValidationError, profile_input, run_input, session_input
 from .storage import Store
+from .daily import daily_input
 
 STATIC = Path(__file__).parent / "static"
 LOGGER = logging.getLogger(__name__)
@@ -56,6 +57,8 @@ def handler_for(store):
                 if self.path == "/api/profile":
                     self.send(200, {"profile": store.save_profile(profile_input(data))})
                     return
+                elif self.path == "/api/daily-checkins":
+                    result = store.add_daily_session(daily_input(data))
                 elif self.path == "/api/sessions":
                     result = store.add_session(session_input(data))
                 elif self.path == "/api/runs":

@@ -48,7 +48,9 @@ try {
     });
   }
   async function evaluate(expression) {
-    const result = await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});
+    let result;
+    try { result = await command('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true}); }
+    catch (error) { throw new Error(`${error.message}: ${expression}`); }
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
     return result.result.value;
   }
@@ -84,13 +86,40 @@ try {
   await waitFor(() => evaluate('location.pathname === "/" && document.getElementById("profile-summary")?.textContent.includes("35 km/week")'));
   const saved = await (await fetch(url+'/api/profile')).json();
   assert.deepEqual(saved.profile,{goal:'race',weekly_distance_km:35,running_days:['tue','sun'],long_run_day:'sun'});
+  // Today starts with body condition, never a user-selected workout.
+  await waitFor(() => evaluate('document.getElementById("daily-flow") && !document.getElementById("daily-flow").hidden'));
+  assert.equal(await evaluate('document.querySelector("[name=session_type], [name=planned_minutes]") === null'),true);
+  await evaluate('document.getElementById("daily-next").click()');
+  assert.deepEqual(await visible(),['0']);
+  await evaluate('document.querySelector("[name=sleep_hours]").value="7.5"; document.querySelector("[name=sleep_quality][value=good]").click(); document.getElementById("daily-next").click(); document.getElementById("daily-back").click()');
+  assert.equal(await evaluate('document.querySelector("[name=sleep_hours]").value'),'7.5');
+  await evaluate('document.getElementById("daily-next").click(); document.querySelector("[name=energy][value=normal]").click(); document.getElementById("daily-next").click(); document.querySelector("[name=fatigue][value=low]").click(); document.getElementById("daily-next").click(); document.querySelector("[name=soreness][value=none]").click(); document.getElementById("daily-next").click()');
+  await command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true);
+  await evaluate('document.querySelector("[name=available_minutes]").value="30"; window.originalFetch=window.fetch; window.fetch=(...args)=>args[0]==="/api/daily-checkins" ? Promise.resolve(new Response(JSON.stringify({error:"Test check-in error"}),{status:400})) : window.originalFetch(...args); document.getElementById("daily-next").click()');
+  await waitFor(() => evaluate('document.getElementById("checkin-status").textContent === "Test check-in error"'));
+  assert.equal(await evaluate('document.getElementById("daily-fields").disabled'),false);
+  await evaluate('window.fetch=window.originalFetch; document.getElementById("daily-next").click()');
+  await waitFor(() => evaluate('document.getElementById("daily-result") && !document.getElementById("daily-result").hidden'));
+  assert.equal(await evaluate('document.getElementById("recommendation-title").textContent'),'20-minute easy run');
+  assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true);
+  await evaluate('document.getElementById("open-log").click(); document.querySelector("#log-form [name=minutes]").value="20"; document.querySelector("#log-form [name=distance_km]").value="3"; document.querySelector("#log-form [name=effort]").value="4"; document.querySelector("#log-form button").click()');
+  await waitFor(() => evaluate('document.getElementById("log-status").textContent.includes("Run saved")'));
+  await command('Page.navigate',{url});
+  await waitFor(() => evaluate('document.getElementById("daily-result") && !document.getElementById("daily-result").hidden'));
+  assert.equal(await evaluate('document.getElementById("open-log").hidden'),true);
+  await evaluate('document.getElementById("edit-checkin").click()');
+  assert.equal(await evaluate('document.querySelector("[name=sleep_hours]").value'),'7.5');
+  await evaluate('document.getElementById("daily-next").click(); document.getElementById("daily-next").click(); document.getElementById("daily-next").click(); document.querySelector("[name=soreness][value=pain]").click(); document.querySelector("[name=soreness_area]").value="left knee"; document.getElementById("daily-next").click(); document.getElementById("daily-next").click()');
+  await waitFor(() => evaluate('!document.getElementById("daily-result").hidden'));
+  assert.equal(await evaluate('document.getElementById("recommendation-title").textContent'),'Make today a recovery day.');
   await command('Page.navigate',{url:url+'/profile'});
   await waitFor(() => evaluate('document.getElementById("profile-fields") && !document.getElementById("profile-fields").disabled'));
   assert.equal(await evaluate('document.getElementById("profile-form").elements.goal.value'),'race');
   // Mobile layout should fit without horizontal scrolling.
   await command('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'),true);
-  console.log('Browser checks passed: new-user redirect, required inputs, navigation, preserved answers, dependent days, review, failed-save retry, save, edit, and mobile width.');
+  console.log('Browser checks passed: profile onboarding and daily check-in, validation, Back/edit, failed-save retry, suggestion, run log, reload, pain/recovery, and mobile width.');
 } finally {
   if (socket) socket.close();
   for (const child of [browser,server]) {
