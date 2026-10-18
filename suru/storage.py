@@ -28,12 +28,24 @@ class Store:
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS runs_date ON runs(date);
+                CREATE TABLE IF NOT EXISTS activities (
+                    id INTEGER PRIMARY KEY, date TEXT NOT NULL,
+                    session_type TEXT NOT NULL, setting TEXT, minutes REAL NOT NULL,
+                    distance_km REAL NOT NULL, effort REAL NOT NULL,
+                    notes TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS activities_date ON activities(date);
                 CREATE TABLE IF NOT EXISTS runner_profile (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
                     profile TEXT NOT NULL,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            # Older runs have no recorded setting; preserve that distinction.
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(activities)")}
+            if "setting" not in columns:
+                db.execute("ALTER TABLE activities ADD COLUMN setting TEXT")
 
     @contextmanager
     def connect(self):
@@ -64,18 +76,38 @@ class Store:
         with self.connect() as db:
             sessions = [dict(r) for r in db.execute("SELECT * FROM sessions ORDER BY date DESC, id DESC LIMIT 100")]
             runs = [dict(r) for r in db.execute("SELECT * FROM runs ORDER BY date DESC, id DESC LIMIT 100")]
+            activities = [dict(r) for r in db.execute("SELECT * FROM activities ORDER BY date DESC, id DESC LIMIT 100")]
         for session in sessions:
             session["checkin"] = json.loads(session["checkin"])
             session["recommendation"] = json.loads(session["recommendation"])
-        return {"sessions": sessions, "runs": runs}
+        return {"sessions": sessions, "runs": runs, "activities": activities}
+
+    def add_activity(self, activity):
+        with self.connect() as db:
+            cursor = db.execute(
+                """INSERT INTO activities(date, session_type, setting, minutes, distance_km, effort, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                tuple(activity[key] for key in ("date", "session_type", "setting", "minutes", "distance_km", "effort", "notes")))
+            return {"id": cursor.lastrowid, **activity}
 
     def add_session(self, checkin):
         with self.connect() as db:
             recent = [dict(r) for r in db.execute("SELECT * FROM runs WHERE date < ? AND date >= date(?, '-2 days')", (checkin["date"], checkin["date"]))]
+            recent.extend(dict(r) for r in db.execute("SELECT * FROM activities WHERE date < ? AND date >= date(?, '-2 days')", (checkin["date"], checkin["date"])))
             result = recommend(checkin, recent)
             cursor = db.execute("INSERT INTO sessions(date, checkin, recommendation) VALUES (?, ?, ?)",
                                 (checkin["date"], json.dumps(checkin), json.dumps(result)))
             return {"id": cursor.lastrowid, "date": checkin["date"], "checkin": checkin, "recommendation": result}
+
+    def update_run(self, run):
+        with self.connect() as db:
+            saved = db.execute("SELECT id, date FROM runs WHERE session_id = ?", (run["session_id"],)).fetchone()
+            if saved is None:
+                raise ValidationError("This session has no saved run to edit.")
+            db.execute("""UPDATE runs SET minutes = ?, distance_km = ?, effort = ?, choice = ?, notes = ?
+                          WHERE session_id = ?""",
+                       (run["minutes"], run["distance_km"], run["effort"], run["choice"], run["notes"], run["session_id"]))
+            return {"id": saved["id"], "date": saved["date"], **run}
 
     def add_run(self, run):
         with self.connect() as db:

@@ -6,12 +6,24 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .domain import ValidationError, profile_input, run_input, session_input
+from .domain import ValidationError, activity_input, profile_input, run_input, session_input
 from .storage import Store
 from .daily import daily_input
 
 STATIC = Path(__file__).parent / "static"
 LOGGER = logging.getLogger(__name__)
+STATIC_ROUTES = {
+    "/": ("index.html", "text/html"),
+    "/profile": ("profile.html", "text/html"),
+    "/history": ("history.html", "text/html"),
+    "/app.js": ("app.js", "text/javascript"),
+    "/history.js": ("history.js", "text/javascript"),
+    "/profile.js": ("profile.js", "text/javascript"),
+    "/run-log.js": ("run-log.js", "text/javascript"),
+    "/style.css": ("style.css", "text/css"),
+    "/onboarding.css": ("onboarding.css", "text/css"),
+}
+
 
 
 def handler_for(store):
@@ -34,8 +46,8 @@ def handler_for(store):
                 self.send(200, store.history())
             elif path == "/api/profile":
                 self.send(200, {"profile": store.get_profile()})
-            elif path in ("/", "/profile","/history","/history.js", "/app.js", "/profile.js", "/style.css", "/onboarding.css"):
-                name, mime = {"/": ("index.html", "text/html"),"/history":("history.html","text/html"),"/history.js": ("history.js", "text/javascript"), "/profile": ("profile.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/profile.js": ("profile.js", "text/javascript"), "/style.css": ("style.css", "text/css"), "/onboarding.css": ("onboarding.css", "text/css")}[path]
+            elif path in STATIC_ROUTES:
+                name, mime = STATIC_ROUTES[path]
                 self.send(200, (STATIC / name).read_bytes(), mime + "; charset=utf-8")
             else:
                 self.send(404, {"error": "Not found."})
@@ -63,6 +75,11 @@ def handler_for(store):
                     result = store.add_session(session_input(data))
                 elif self.path == "/api/runs":
                     result = store.add_run(run_input(data))
+                elif self.path == "/api/runs/update":
+                    self.send(200, store.update_run(run_input(data)))
+                    return
+                elif self.path == "/api/activities":
+                    result = store.add_activity(activity_input(data))
                 else:
                     self.send(404, {"error": "Not found."})
                     return

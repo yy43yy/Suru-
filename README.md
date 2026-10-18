@@ -53,11 +53,22 @@ between questions; they are saved to the database only on the final step.
 
 ## Architecture
 
+The app has three main pages: **Today** for today's check-in, suggestion, and run
+log; **History** for reviewing the journal and adding past runs; and **Profile**
+for goals and availability. Today restores only the current day's latest check-in.
+Older sessions remain in History. A rest suggestion requires no completed-run log.
+Detailed recovery context stays collapsed until requested on Today and History.
+
+**Run setting** is separate from the session type: choose Outdoor or Treadmill
+on Today or when adding a past run. It is saved and shown in History; it does not
+change recommendation rules. Older records retain an unrecorded setting.
+
 - `suru/domain.py`: input validation and a pure recommendation function.
 - `suru/daily.py`: body-check-in validation and a pure daily session selector.
 - `suru/storage.py`: SQLite transactions, history, and persisted rule versions.
 - `suru/server.py`: local HTTP API and an explicit static-file allowlist.
 - `suru/static/`: responsive, accessible-label web interface; no build step.
+- `suru/static/run-log.js`: shared API requests and run-form saving/retry behaviour.
 - `tests/test_suru.py`: scenario, persistence, and HTTP integration tests.
 
 Recommendation rules are provisional product experiments. Daily duration starts
@@ -86,6 +97,8 @@ root scoring scripts are not used by the app.
 python -m unittest discover -s tests -v
 node --check suru/static/app.js
 node --check suru/static/profile.js
+node --check suru/static/history.js
+node --check suru/static/run-log.js
 ```
 
 Tests use temporary databases and cover the full HTTP check-in → recommendation
@@ -104,6 +117,30 @@ checks required answers, Back navigation, review/edit, dependent weekday options
 failed-save retry, successful save, returning-user editing, and mobile width.
 It does not change your real profile or journal. Set `SURU_EDGE` if Edge is
 installed at a different path.
+
+## History timeline
+
+Open `/history` for a vertical journal, newest first, grouped by month and date.
+Cards show completed runs, pending logs, or rest recommendations. Expand a card
+to review its original plan, recommendation, reasons, check-in, and actual result.
+Pending runs can be logged directly in the card; rest recommendations need no log.
+Days without check-ins or activities are omitted. The journal currently shows up
+to 100 recent check-ins and 100 added runs; older-history pagination is a future increment.
+
+Run `node tests/browser_history.mjs` for isolated Edge checks covering the timeline,
+logging and retry, persistence, keyboard access, and phone widths. It uses a temporary
+database and does not change your real journal.
+
+History also offers **Log a past run** for completed runs without a check-in.
+Enter the run date (today or earlier), run type, duration, distance, effort, and
+optional notes. Added runs appear alongside check-ins, clearly labelled without
+a recommendation, and inform the next check-in's recent-training context.
+If a run already has a check-in, log from that card to avoid recording it twice.
+The browser history test covers this flow, including validation and save retry.
+
+Run `node tests/browser_today.mjs` to check the daily flow, restoring a completed
+run after reload, isolation from yesterday's check-ins, rest suggestions, save
+retry, shared navigation, and mobile width. It also uses a temporary database.
 
 ## Next increments
 

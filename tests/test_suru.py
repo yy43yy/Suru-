@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -49,6 +50,15 @@ class ProfileTests(unittest.TestCase):
 
 
 class RecommendationTests(unittest.TestCase):
+    def test_run_setting_is_separate_from_session_and_does_not_change_rules(self):
+        outdoor = checkin(setting="outdoor", session_type="tempo")
+        treadmill = checkin(setting="treadmill", session_type="tempo")
+        self.assertEqual(treadmill["setting"], "treadmill")
+        self.assertEqual(treadmill["session_type"], "tempo")
+        self.assertEqual(recommend(outdoor, []), recommend(treadmill, []))
+        with self.assertRaises(ValidationError):
+            checkin(setting="track")
+
     def test_normal_day_preserves_plan(self):
         result = recommend(checkin(), [])
         self.assertEqual((result["action"], result["session_type"], result["minutes"]), ("follow", "intervals", 50))
@@ -139,12 +149,108 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(len(journal["sessions"]), 2)
         self.assertEqual(len(journal["runs"]), 1)
 
+    def test_edit_run_preserves_identity_and_updates_future_training_context(self):
+        session = self.store.add_session(checkin(date="2026-10-08"))
+        original = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation", "notes":"Easy"}
+        _, saved = self.request("/api/runs", original)
+        changes = {**original, "minutes":40, "distance_km":6.2, "effort":8, "choice":"other", "notes":"Corrected effort"}
+        code, updated = self.request("/api/runs/update", changes)
+        self.assertEqual(code, 200)
+        self.assertEqual(updated["id"], saved["id"])
+        self.assertEqual(updated["date"], saved["date"])
+        reopened = Store(self.db).history()
+        self.assertEqual(len(reopened["runs"]), 1)
+        for key, value in changes.items():
+            self.assertEqual(reopened["runs"][0][key], value)
+        self.assertEqual(reopened["sessions"][0]["recommendation"], session["recommendation"])
+        _, next_day = self.request("/api/sessions", checkin())
+        self.assertEqual(next_day["recommendation"]["session_type"], "easy")
+
+    def test_invalid_edit_does_not_replace_or_create_a_run(self):
+        session = self.store.add_session(checkin())
+        original = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation"}
+        self.request("/api/runs", original)
+        before = self.store.history()["runs"]
+        for changes in ({"minutes":0}, {"distance_km":-1}, {"effort":11}, {"choice":"invalid"}, {"notes":[]}):
+            self.assertEqual(self.request("/api/runs/update", {**original, **changes})[0], 400)
+        self.assertEqual(self.request("/api/runs/update", {**original, "session_id":999})[0], 400)
+        pending = self.store.add_session(checkin())
+        self.assertEqual(self.request("/api/runs/update", {**original, "session_id":pending["id"]})[0], 400)
+        self.assertEqual(self.store.history()["runs"], before)
+
     def test_duplicate_log_and_nonexistent_session_rejected(self):
         session = self.store.add_session(checkin())
         run = {"session_id":session["id"], "minutes":30, "distance_km":5, "effort":4, "choice":"recommendation"}
         self.assertEqual(self.request("/api/runs",run)[0], 201)
         self.assertEqual(self.request("/api/runs",run)[0], 400)
         self.assertEqual(self.request("/api/runs",{**run,"session_id":999})[0], 400)
+
+    def test_setting_persists_in_checkins_and_past_runs(self):
+        code, session = self.request("/api/sessions", checkin(setting="treadmill"))
+        self.assertEqual(code, 201)
+        self.assertEqual(session["checkin"]["setting"], "treadmill")
+        activity = {"date":"2026-10-08", "session_type":"easy", "setting":"treadmill",
+                    "minutes":30,"distance_km":5,"effort":4}
+        self.assertEqual(self.request("/api/activities",activity)[0], 201)
+        self.assertEqual(self.request("/api/activities",{**activity,"setting":"invalid"})[0], 400)
+        reopened = Store(self.db).history()
+        self.assertEqual(reopened["sessions"][0]["checkin"]["setting"], "treadmill")
+        self.assertEqual(reopened["activities"][0]["setting"], "treadmill")
+
+    def test_old_activity_database_upgrades_without_guessing_setting(self):
+        legacy = Path(self.temp.name) / "legacy.sqlite3"
+        with sqlite3.connect(legacy) as db:
+            db.execute("""CREATE TABLE activities (
+                id INTEGER PRIMARY KEY, date TEXT NOT NULL, session_type TEXT NOT NULL,
+                minutes REAL NOT NULL, distance_km REAL NOT NULL, effort REAL NOT NULL,
+                notes TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+            db.execute("INSERT INTO activities(date,session_type,minutes,distance_km,effort,notes) VALUES ('2026-10-08','easy',30,5,4,'Existing run')")
+        db.close()
+        Store(legacy)
+        history = Store(legacy).history()
+        self.assertEqual(len(history["activities"]), 1)
+        self.assertIsNone(history["activities"][0]["setting"])
+        self.assertEqual(history["activities"][0]["notes"], "Existing run")
+
+    def test_past_activity_persists_without_checkin_and_informs_next_day(self):
+        activity = {"date":"2026-10-08", "session_type":"tempo", "minutes":40,
+                    "distance_km":7, "effort":8, "notes":"Track session"}
+        code, saved = self.request("/api/activities", activity)
+        self.assertEqual(code, 201)
+        reopened = Store(self.db).history()
+        self.assertEqual(reopened["sessions"], [])
+        self.assertEqual(reopened["runs"], [])
+        self.assertEqual(reopened["activities"][0]["id"], saved["id"])
+        self.assertEqual(reopened["activities"][0]["date"], "2026-10-08")
+        self.assertEqual(self.request("/api/history")[1]["activities"][0]["notes"], "Track session")
+        _, next_day = self.request("/api/sessions", checkin())
+        self.assertEqual(next_day["recommendation"]["session_type"], "easy")
+        self.assertTrue(any("demanding run" in reason for reason in next_day["recommendation"]["reasons"]))
+
+    def test_invalid_past_activities_do_not_write_history(self):
+        activity = {"date":"2026-10-08", "session_type":"easy", "minutes":30,
+                    "distance_km":5, "effort":4, "notes":""}
+        for changes in ({"date":"bad"}, {"date":"2999-01-01"}, {"minutes":0},
+                        {"distance_km":-1}, {"effort":11}, {"session_type":"cycling"},
+                        {"minutes":"NaN"}, {"notes":[]}):
+            with self.subTest(changes=changes):
+                self.assertEqual(self.request("/api/activities", {**activity, **changes})[0], 400)
+        self.assertEqual(self.request("/api/activities", [])[0], 400)
+        self.assertEqual(self.store.history()["activities"], [])
+
+    def test_adding_activity_preserves_existing_journal_and_profile(self):
+        session = self.store.add_session(checkin())
+        self.store.add_run(run_input({"session_id":session["id"], "minutes":30,
+                                     "distance_km":5,"effort":4,"choice":"original"}))
+        profile = {"goal":"fitness","weekly_distance_km":20,"running_days":["mon"],"long_run_day":None}
+        self.store.save_profile(profile)
+        code, _ = self.request("/api/activities", {"date":"2026-10-01","session_type":"long",
+                                                  "minutes":60,"distance_km":10,"effort":5})
+        self.assertEqual(code, 201)
+        reopened = Store(self.db)
+        self.assertEqual(reopened.get_profile(), profile)
+        self.assertEqual(len(reopened.history()["runs"]), 1)
+        self.assertEqual(len(reopened.history()["sessions"]), 1)
 
     def test_request_validation_and_origin(self):
         self.assertEqual(self.request("/api/sessions",[])[0], 400)
@@ -153,7 +259,7 @@ class EndToEndTests(unittest.TestCase):
         self.assertEqual(self.request("/api/missing")[0], 404)
 
     def test_frontend_assets_are_served_with_security_headers(self):
-        for path, content_type in (("/","text/html"),("/profile","text/html"),("/profile.js","text/javascript"),("/app.js","text/javascript"),("/style.css","text/css"),("/onboarding.css","text/css")):
+        for path, content_type in (("/","text/html"),("/profile","text/html"),("/history","text/html"),("/history.js","text/javascript"),("/run-log.js","text/javascript"),("/profile.js","text/javascript"),("/app.js","text/javascript"),("/style.css","text/css"),("/onboarding.css","text/css")):
             with self.subTest(path=path), urlopen(self.url+path, timeout=5) as response:
                 self.assertEqual(response.status, 200)
                 self.assertTrue(response.headers["Content-Type"].startswith(content_type))

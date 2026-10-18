@@ -78,6 +78,7 @@ def session_input(data):
         "date": session_date,
         "goal": choice(data, "goal", ("fitness", "race")),
         "session_type": choice(data, "session_type", ("easy", "long", "tempo", "intervals")),
+        "setting": choice({"setting": data.get("setting", "outdoor")}, "setting", ("outdoor", "treadmill")),
         "planned_minutes": number(data, "planned_minutes", 5, 300),
         "available_minutes": number(data, "available_minutes", 5, 300),
         "sleep_hours": number(data, "sleep_hours", 0, 24, optional=True),
@@ -175,5 +176,26 @@ def run_input(data):
         "distance_km": number(data, "distance_km", 0.01, 300),
         "effort": number(data, "effort", 1, 10),
         "choice": choice(data, "choice", ("recommendation", "original", "other")),
+        "notes": text_field(data, "notes"),
+    }
+
+
+def activity_input(data):
+    """A completed run entered without a previous check-in or recommendation."""
+    if not isinstance(data, dict):
+        raise ValidationError("Enter a JSON object.")
+    try:
+        activity_date = date.fromisoformat(data.get("date", ""))
+    except (ValueError, TypeError):
+        raise ValidationError("date: enter a valid date.") from None
+    if activity_date > date.today():
+        raise ValidationError("Choose today or an earlier date for a completed run.")
+    return {
+        "date": activity_date.isoformat(),
+        "session_type": choice(data, "session_type", ("easy", "long", "tempo", "intervals")),
+        "setting": choice({"setting": data.get("setting", "outdoor")}, "setting", ("outdoor", "treadmill")),
+        "minutes": number(data, "minutes", 1, 600),
+        "distance_km": number(data, "distance_km", 0.01, 300),
+        "effort": number(data, "effort", 1, 10),
         "notes": text_field(data, "notes"),
     }
