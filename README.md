@@ -10,6 +10,127 @@ a shorter easy run, or recovery. The runner does not need to select a workout
 first. This prototype does not yet generate training plans, harder workouts,
 interval structures, or race paces.
 
+## Start here: understanding the code
+
+Start with **one user action: completing today's check-in**. Follow that action
+through the files instead of reading every file from top to bottom. The first
+goal is to explain what each part does, not to understand every line of Python.
+
+### The three parts of Suru
+
+| Part | Where it runs | What it does |
+| --- | --- | --- |
+| Frontend | Your web browser | Shows questions, handles clicks, displays suggestions |
+| Backend | A Python process on your computer | Receives requests, validates answers, calculates suggestions, reads and saves data |
+| Database | `data/suru.sqlite3` on your computer | Remembers profiles, check-ins, suggestions, and completed runs across restarts |
+
+```text
+Browser                       Python backend                 Database
+HTML + CSS + JavaScript  <-->  server + application logic <--> SQLite file
+```
+
+The frontend and backend communicate using HTTP requests. JSON is the data
+format sent between them. An API endpoint is a URL the frontend can call to
+request data or submit answers; it is not necessarily a file in the repository.
+For example, `/api/history` is handled inside `server.py`, not a folder named `api`.
+
+### The folder map
+
+```text
+Suru-/
+  README.md                This guide, setup, and current limitations
+  suru/                    The application
+    server.py              Starts the server and routes requests
+    daily.py               Validates body check-ins and chooses daily suggestions
+    domain.py              Shared validators, profile/run validation, older rules
+    storage.py             Reads and writes SQLite records
+    static/                Files sent to the browser
+      index.html           Today's questions and result containers
+      app.js               Today's navigation, submission, and result display
+      history.html         History page structure
+      history.js           Journal cards and past-run interactions
+      profile.html         Profile setup structure
+      profile.js           Profile question navigation and saving
+      run-log.js           Shared request and run-form helpers used by History
+      style.css            Shared visual styles
+      onboarding.css       Profile and daily question-card styles
+  tests/                   Python tests and browser checks
+  data/                    Local database and logs; excluded from Git
+```
+
+The root `hrv.py`, `sleep.py`, `resting_hr.py`, and `subjective.py` files are early
+experiments. The running app does not call them. Leave those, tests, database
+internals, and the older manual-plan rules until the main flow makes sense.
+
+### Trace one check-in
+
+1. **`static/index.html`: find `id="checkin-form"`.** This defines the questions.
+   Input `name` attributes, such as `sleep_hours`, become keys in the submitted
+   data. The script tag loads `app.js`; it does not execute Python in the browser.
+2. **`static/app.js`: find `showStep()`.** It shows one question panel and hides
+   the others. Continue moves between cards without contacting the backend.
+3. **In the same file, find `form.addEventListener("submit", ...)`.** On the final
+   question it collects the answers with `FormData` and calls
+   `api("/api/daily-checkins", data)`. The `api()` helper uses `fetch()` to send JSON.
+4. **`server.py`: find `/api/daily-checkins` inside `do_POST()`.** The server reads
+   JSON into Python data, passes it to `daily_input()`, then calls
+   `store.add_daily_session(...)`. Start with this branch; skip headers and
+   server-startup internals on the first reading.
+5. **`daily.py`: read `daily_input()`.** This checks the answers and returns a
+   clean dictionary. Invalid inputs raise `ValidationError`; the server sends
+   an error response instead of saving the check-in.
+6. **`storage.py`: read `add_daily_session()`.** It loads the profile and recent
+   completed runs, then calls `suggest_daily(checkin, profile, runs)`.
+7. **`daily.py`: read `suggest_daily()`.** This chooses easy running or recovery
+   and returns duration, effort guidance, reasons, uncertainty, and a rule version.
+   It does not save to the database. The current rules are provisional.
+8. **Back in `storage.py`.** The method saves the check-in, profile snapshot, and
+   recommendation, then returns the saved session. The server sends it as JSON.
+9. **Back in `app.js`: find `showResult(session)`.** It updates the result elements
+   in the HTML. This is where the runner finally sees the suggestion.
+
+```text
+Questions -> browser collects answers -> POST /api/daily-checkins
+  -> validate -> load context -> calculate -> save -> JSON response
+  -> browser displays the suggestion
+```
+
+Two separate activities happen here: **calculation** makes the suggestion;
+**storage** remembers it. CSS changes appearance but does not change the rules.
+Python sends data; JavaScript decides how to put that data onto the page.
+
+### A manageable reading order
+
+Use the trace above over several sittings:
+
+1. `index.html` + `app.js`: understand the questions, Continue button, and result.
+2. The daily-check-in branch of `server.py`: understand one request and response.
+3. `daily.py`: understand validation and how a suggestion is chosen.
+4. `storage.py`: understand why data survives a page refresh or server restart.
+5. Profile, History, shared helpers, and tests after that.
+
+Before moving on, answer: **What enters this function, what does it do, and what
+comes out?** You do not need to memorize it or understand every helper yet.
+
+### Where to make a change
+
+| Change | Start with |
+| --- | --- |
+| Reword a Today question | `static/index.html` |
+| Change Continue/Back behaviour | `showStep()` and submit listener in `static/app.js` |
+| Change the result's displayed wording | `showResult()` in `static/app.js` |
+| Change which daily answers are accepted | `daily_input()` in `daily.py` |
+| Change what run is suggested | `suggest_daily()` in `daily.py`, then `tests/test_daily.py` |
+| Change saving or loading | The relevant method in `storage.py` |
+| Add a page or endpoint | `STATIC_ROUTES`, `do_GET()`, or `do_POST()` in `server.py` |
+| Change card appearance | The relevant classes in `style.css` or `onboarding.css` |
+
+Edit one behaviour at a time. HTML/CSS/JavaScript changes need a save and browser
+refresh. Python changes need a server restart: this server has no automatic
+reload. A loading screen can mean a script or API request failed; it does not
+necessarily mean the database is empty. Check the browser's Console and Network
+tabs and the server terminal/logs before rewriting code.
+
 ## Run locally
 
 Requires Python 3.12 or later. No third-party dependencies are needed.
@@ -48,8 +169,8 @@ between questions; they are saved to the database only on the final step.
 4. Edit the check-in or log the actual run. Recovery days need no completed run.
 5. Reopen Today to see today's most recent saved body-check-in suggestion.
    Completed runs inform subsequent check-ins, including later check-ins that day.
-   Older manually planned sessions remain in History, which is still a raw JSON
-   learning page. Profile setup remains separate from the daily check-in.
+   Older manually planned sessions remain in History's journal cards.
+   Profile setup remains separate from the daily check-in.
 
 ## Architecture
 
